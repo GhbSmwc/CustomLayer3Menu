@@ -38,6 +38,7 @@ endif
 
  !Freeram_CustomL3Menu_PasswordStringTable = $0F5E|!addr
   ;^[Max_Number_of_char_in_game] bytes. Contains the string of characters entered by the user.
+  ; This is used by the number password UI. Make sure this is all initialized to 0.
 
  !Freeram_ControlBackup = $0DC3|!addr
   ;^[4 bytes] a copy of $15-$18 (in the same order). This is so that when in UI mode,
@@ -62,13 +63,40 @@ endif
   !CustomL3Menu_ButtonConfirm = %10000000 ;>Which bit to check that would "confirm" based on what input type above.
   !CustomL3Menu_WhichControllerDataToCancel = 0 ;>0 = Use $15-$16's byetUDLR input, 1 = Use $17-$18's axlr---- input
   !CustomL3Menu_ButtonCancel = %10000000 ;>Which bit to check that would "cancel" based on what input type above.
+
  ;Sound effects. $00 for the sound effect = nothing
   ;Sound effect of moving cursor
    !CustomL3Menu_SoundEffectPort_CursorMove = $1DFC|!addr
    !CustomL3Menu_SoundEffectNumber_CursorMove = $06
+
   ;Sound effect for confirming
    !CustomL3Menu_SoundEffectPort_Confirm = $1DFC|!addr
    !CustomL3Menu_SoundEffectNumber_Confirm = $01
+
   ;Sound effect when the user selects a menu option that is locked or enters the incorrect passcode
    !CustomL3Menu_SoundEffectPort_Rejected = $1DFC|!addr
    !CustomL3Menu_SoundEffectNumber_Rejected = $2A
+
+  ;Sound effect when increment/decrementing a digit value
+   !CustomL3Menu_SoundEffectPort_NumberAdjust = $1DFC|!addr
+   !CustomL3Menu_SoundEffectNumber_NumberAdjust = $23
+
+ ;Stripe image displaying layer 3 UI.
+ ;Make sure the layer 3 settings in LM are:
+ ;-Blank layer 3
+ ;-[check] Force Layer 3 tiles with priority above other layers and sprites
+ ;-[check] Enable advanced bypass settings for Layer 3
+ ;
+ ;-[uncheck] CGADSUB for Layer 3
+ ;-[uncheck] Move layer 3 to subscreen
+ ;
+ ;-Vertical scroll: None
+ ;-Vertical scroll: None
+ ;-Inintal Y position/offset: 0
+ ;-Inintal X position/offset: 0
+ ;
+ ;If multiple tiles, this position represent the top-leftmost tile,
+ ;and extends downwards and rightwards.
+  ;Number input
+   !CustomL3Menu_NumberInput_XPos = 3 ;>31 ($1F) = right edge of screen
+   !CustomL3Menu_NumberInput_YPos = 25 ;>27 ($1B) = bottom of screen

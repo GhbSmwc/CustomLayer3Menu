@@ -47,7 +47,161 @@ ProcessLayer3Menu:
 	;Number input
 	;--------------------------------------------------------------------------------
 		NumberInput:
+			PHB					;>Preserve bank
+			PHK					;\Change bank so that $xxxx,y works correctly
+			PLB					;/
+			
+			LDX #$01				;\Moving cursor left and right switches which digit the player wants to adjust
+			JSL DPadMoveCursorOnMenu		;/
+			BCC .AdjustNumber
+			.DisplayCursor
+				LDA.b #!CustomL3Menu_NumberInput_XPos	;\XY pos
+				STA $00					;|
+				LDA.b #!CustomL3Menu_NumberInput_YPos+1	;|
+				STA $01					;/
+				LDA #$05				;\Layer
+				STA $02					;/
+				STZ $03					;>Direction and RLE
+				LDA !Freeram_CustomL3Menu_UIState	;\Number of cursor positions = number of digits the user can adjust
+				TAX					;|
+				LDA Layer3MenuNumberOfCursorPos-1,x	;|
+				INC					;|
+				STA $04					;|
+				STZ $05					;/
+				JSL SetupStripeHeaderAndIndex		;>X (16-bit) = Length of stripe data
+				LDA #$7F				;\$00-$02: A RAM address to safely write stripe image
+				STA $02					;|
+				REP #$21				;|
+				TXA					;|
+				ADC.w #$7F837D+4			;|
+				STA $00					;/
+				..ClearOutCursorSpaces
+					PHX				;>Preserve stripe length
+					LDX #$0000
+					..Loop
+						...WriteTile
+							STX $06					;>$06-$07: Current position processed
+							LDA !Freeram_CustomL3Menu_CursorPos	;\If looping index and cursor position match, display a cursor tile.
+							AND #$00FF				;|
+							CMP $06					;|
+							BNE ....Blank				;/
+							....Cursor ;The tile written when the cursor is on that spot
+								LDA #$B827
+								BRA ....Write
+							....Blank ;The tile written when the cursor isn't present on this spot
+								LDA #$38FC			;>[TileNumber], [Properties] -> $[Properties][TileNumber]
+							....Write
+								STA [$00]
+						...Next
+							LDA $00			;\Next tile in stripe
+							CLC			;|
+							ADC #$0002		;|
+							STA $00			;/
+							INX			;\Loop until all tiles written
+							CPX #$0004		;|
+							BCC ..Loop		;/
+					PLX			;>Restore stripe length
+					SEP #$20		;\Finish stripe
+					JSL FinishStripe	;/
+			.AdjustNumber
+				LDA !Freeram_CustomL3Menu_CursorPos	;\Depending on your cursor positiuon adjust what number to increase/decrease
+				TAX					;/
+				LDA !Freeram_ControlBackup+1				;\Controller: byetUDLR -> 00byetUD -> 000000UD into the Y index
+				LSR #2							;|to determine to increment or decrement it
+				AND.b #%00000011					;|
+				TAY							;/
+				LDA !Freeram_CustomL3Menu_PasswordStringTable,x		;\Take current digit and increment and decrement
+				CLC							;|
+				ADC IncrementDecrementNumberUI,y			;/
+				CMP #$FF						;\If digit increment/decrement outside the 0-9 range, wrap it.
+				BEQ .WrapTo9						;|
+				CMP #$0A						;|
+				BCS .WrapTo0						;|
+				BRA .In0To9Range					;/
+				.WrapTo9
+					LDA #$09
+					BRA .In0To9Range
+				.WrapTo0
+					LDA #$00
+				.In0To9Range
+				STA !Freeram_CustomL3Menu_PasswordStringTable,x		;>Adjust digit.
+			
+			LDA IncrementDecrementNumberUI,y			;\No increment, no sound (if both up and down are set or clear)
+			BEQ .NoChange						;/
+			
+			.Change
+				LDA #!CustomL3Menu_SoundEffectNumber_NumberAdjust
+				STA !CustomL3Menu_SoundEffectPort_NumberAdjust
+				..Display
+					LDA.b #!CustomL3Menu_NumberInput_XPos	;\XY pos
+					STA $00					;|
+					LDA.b #!CustomL3Menu_NumberInput_YPos	;|
+					STA $01					;/
+					LDA #$05				;\Layer
+					STA $02					;/
+					STZ $03					;>Direction and RLE
+					LDA !Freeram_CustomL3Menu_UIState	;\Number of cursor positions = number of digits the user can adjust
+					TAX					;|$04-$05 and $06-$07: number of tiles/cursor positions/number of digits
+					LDA Layer3MenuNumberOfCursorPos-1,x	;|
+					INC					;|
+					STA $04					;|
+					STA $06					;|
+					STZ $05					;|
+					STZ $07					;/
+					JSL SetupStripeHeaderAndIndex		;>X (16-bit): Stripe length
+					
+					LDA #$7F				;\$00-$02 Tile numbers (assuming this increments by 2)
+					STA $02					;|$03-$05 Tile properties (assuming this increments by 2)
+					STA $05					;|
+					REP #$21				;|
+					TXA					;|
+					ADC.w #$7F837D+4			;|
+					STA $00					;|
+					TXA					;|
+					CLC					;|
+					ADC.w #$7F837D+4+1			;|
+					STA $03					;|
+					SEP #$20				;/
+					WDM
+					PHX
+					LDX #$0000
+					...Loop
+						....Write
+							LDA !Freeram_CustomL3Menu_PasswordStringTable,x
+							STA [$00]
+							LDA.b #%00111000
+							STA [$03]
+						....Next
+							REP #$21
+							LDA $00
+							ADC #$0002
+							STA $00
+							LDA $03
+							CLC
+							ADC #$0002
+							STA $03
+							SEP #$20
+							INX		;\Loop until all tiles written
+							CPX $06		;|
+							BCC ...Loop	;/
+					PLX
+					STZ $03				;>RLE
+					REP #$20
+					LDA $06				;\Number of tiles
+					STA $04				;/
+					SEP #$20
+					JSL FinishStripe
+					SEP #$30
+			.NoChange
+			.Done
+			PLB			;>Restore bank
 			RTL
+			
+		IncrementDecrementNumberUI:
+			db $00		;>%00000000 (none pressed)
+			db $FF		;>%00000100 (down pressed)
+			db $01		;>%00001000 (up pressed)
+			db $00		;>%00001100 (both pressed)
 	;--------------------------------------------------------------------------------
 	;Value adjust menu
 	;--------------------------------------------------------------------------------
@@ -69,11 +223,12 @@ ProcessLayer3Menu:
 			db $02		;>Index 2
 	;--------------------------------------------------------------------------------
 	;Number of positions a cursor can be at, -1.
+	;Each number here is each value for !Freeram_CustomL3Menu_UIState excluding state $00.
+	;
 	;This is needed to prevent the cursor from going beyond the last
 	;option and makes it wrap to the first or last item should the cursor
-	;position be at -1 or NumberOfOOptions.
-	;
-	;Each number here is each value for !Freeram_CustomL3Menu_UIState excluding state $00.
+	;position be at -1 or NumberOfOOptions (the cursor is allowed to be at positions
+	;0 to NumberOfOOptions-1).
 	;--------------------------------------------------------------------------------
 		Layer3MenuNumberOfCursorPos:
 			db 4-1		;>State 1
@@ -84,9 +239,12 @@ ProcessLayer3Menu:
 ;Handles D-pad to move the cursor. Not suitable for 2D-like menu.
 ;
 ;Input:
-;X:
-; -$00 = vertical (up and down move cursor vertically)
-; -$01 = horizontal (left and right move cursor horizontally)
+; X:
+;  -$00 = vertical (up and down moves the cursor vertically)
+;  -$01 = horizontal (left and right moves the cursor horizontally)
+;Output:
+; Carry: 0 = No change, 1 = change. Needed so we can only update what's change
+;  on the stripe image.
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 DPadMoveCursorOnMenu:
 	LDA !Freeram_ControlBackup+1
@@ -95,7 +253,7 @@ DPadMoveCursorOnMenu:
 	BEQ .Decrease
 	CMP DPadMoveCursorOnMenuDownOrRight,x
 	BEQ .Increase
-	BRA .Done		;>If both opposite directions pressed in 1 frame, no moving cursor
+	BRA .NoChange		;>If both opposite directions pressed in 1 frame, or none pressed at all, no moving cursor
 	
 	.Decrease
 		LDA !Freeram_CustomL3Menu_CursorPos
@@ -128,6 +286,11 @@ DPadMoveCursorOnMenu:
 	.SFX
 		LDA #!CustomL3Menu_SoundEffectNumber_CursorMove
 		STA !CustomL3Menu_SoundEffectPort_CursorMove
+	.SetCarry
+		SEC
+		RTL
+	.NoChange
+		CLC
 	.Done
 		RTL
 DPadMoveCursorOnMenuWhichOrientation:
