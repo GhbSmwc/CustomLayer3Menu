@@ -1,3 +1,144 @@
+;This main code should be run using "JSL CustomLayer3Menu_ProcessLayer3Menu" from gamemode 14.
+
+	incsrc "../CustomLayer3Menu_Defines/Defines.asm"
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;Process layer 3 menu
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+ProcessLayer3Menu:
+	LDA !Freeram_CustomL3Menu_UIState
+	BNE +
+	RTL
+	+
+	;CMP #$XX		;\If you want some menus to not freeze time,
+	;BEQ .SkipFreeze	;/uncomment the code here.
+	LDX #$0B
+	STX $71
+	STX $9D
+	
+	.SkipFreeze
+	
+	.MenuTypeHandler
+		TAX
+		LDA Layer3MenuBehavior,x
+		STA $00			;>$00 = Index of what menu type of the current menu being on.
+		ASL
+		TAX
+		BCS +
+		JMP.w (MenuStates-2,x)
+		+
+		JMP.w (MenuStates-2+128,x)
+	
+	MenuStates:
+		dw MenuSelection
+		dw NumberInput
+		dw ValueAdjustMenu
+	;--------------------------------------------------------------------------------
+	;These are codes that handle the behavior of each menu types
+	;$00 contains the index of what menu type of the current menu.
+	;--------------------------------------------------------------------------------
+	;--------------------------------------------------------------------------------
+	;This one is a standard menu
+	;--------------------------------------------------------------------------------
+		MenuSelection:
+			LDX #$00
+			JSL DPadMoveCursorOnMenu
+			RTL
+	;--------------------------------------------------------------------------------
+	;Number input
+	;--------------------------------------------------------------------------------
+		NumberInput:
+			RTL
+	;--------------------------------------------------------------------------------
+	;Value adjust menu
+	;--------------------------------------------------------------------------------
+		ValueAdjustMenu:
+			RTL
+	;--------------------------------------------------------------------------------
+	;Each value here is each type from !Freeram_CustomL3Menu_UIState,
+	;excluding state $00 (so the first item is index 1). This defines the behavior
+	;of each value of !Freeram_CustomL3Menu_UIState.
+	; $00 = Menu selection mode (move cursor up and down, and press "confirm"
+	;       to select)
+	; $01 = number input
+	; $02 = Value adjust menu. Up/Down moves the cursor, Left/Right adjust the
+	;       value associated with it like a settings menu.
+	;--------------------------------------------------------------------------------
+		Layer3MenuBehavior:
+			db $00		;>Index 0
+			db $01		;>Index 1
+			db $02		;>Index 2
+	;--------------------------------------------------------------------------------
+	;Number of positions a cursor can be at, -1.
+	;This is needed to prevent the cursor from going beyond the last
+	;option and makes it wrap to the first or last item should the cursor
+	;position be at -1 or NumberOfOOptions.
+	;
+	;Each number here is each value for !Freeram_CustomL3Menu_UIState excluding state $00.
+	;--------------------------------------------------------------------------------
+		Layer3MenuNumberOfCursorPos:
+			db 4-1		;>State 1
+			db 4-1		;>State 2
+			db 10-1		;>State 3
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;Cursor move handler
+;Handles D-pad to move the cursor. Not suitable for 2D-like menu.
+;
+;Input:
+;X:
+; -$00 = vertical (up and down move cursor vertically)
+; -$01 = horizontal (left and right move cursor horizontally)
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+DPadMoveCursorOnMenu:
+	LDA !Freeram_ControlBackup+1
+	AND DPadMoveCursorOnMenuWhichOrientation,x	;>Mask all bits except the 2 directions
+	CMP DPadMoveCursorOnMenuUpOrLeft,x
+	BEQ .Decrease
+	CMP DPadMoveCursorOnMenuDownOrRight,x
+	BEQ .Increase
+	BRA .Done		;>If both opposite directions pressed in 1 frame, no moving cursor
+	
+	.Decrease
+		LDA !Freeram_CustomL3Menu_CursorPos
+		DEC
+		CMP #$FF
+		BNE .NoWrapToBottom
+		.WrapToBottom
+			LDA !Freeram_CustomL3Menu_UIState
+			TAX
+			LDA Layer3MenuNumberOfCursorPos-1,x
+		.NoWrapToBottom
+		STA !Freeram_CustomL3Menu_CursorPos
+		BRA .SFX
+	.Increase
+		LDA !Freeram_CustomL3Menu_UIState	;\Get final position of cursor to compare with so that if beyond the last
+		TAX					;|item, loop back to item 0.
+		LDA Layer3MenuNumberOfCursorPos-1,x	;|
+		STA $01					;/
+		
+		LDA !Freeram_CustomL3Menu_CursorPos
+		INC
+		CMP $01
+		BEQ .NotExceed
+		BCC .NotExceed
+		
+		.Exceed
+			LDA #$00
+		.NotExceed
+		STA !Freeram_CustomL3Menu_CursorPos
+	.SFX
+		LDA #!CustomL3Menu_SoundEffectNumber_CursorMove
+		STA !CustomL3Menu_SoundEffectPort_CursorMove
+	.Done
+		RTL
+DPadMoveCursorOnMenuWhichOrientation:
+	db %00001100			;>Vertical
+	db %00000011			;>Horizontal
+DPadMoveCursorOnMenuUpOrLeft:
+	db %00001000			;>Vertical
+	db %00000010			;>Horizontal
+DPadMoveCursorOnMenuDownOrRight:
+	db %00000100			;>Vertical
+	db %00000001			;>Horizontal
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;Easy stripe setup-er. Gets index of stripe table and sets up the header.
 ;Input:
