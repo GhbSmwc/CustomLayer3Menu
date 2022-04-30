@@ -24,15 +24,19 @@ endif
 ;Freeram
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
  !Freeram_CustomL3Menu_UIState = $58
-  ;^1 byte, menu state, used to display what menu/passcode mode. If value stored here is 0, then do nothing, if any nonzero value
+  ;^[1 byte], menu state, used to display what menu/passcode mode. If value stored here is 0, then do nothing, if any nonzero value
   ; then it enters menu mode.
 
- !Freeram_CustomL3Menu_LineWriteCount = $5C
-  ;^1 byte, menu phase, used to load not the entire menu at once (results in vblank overflow -- black bars),
-  ; but lines at a time from top to bottom.
+ !Freeram_CustomL3Menu_WritePhase = $5C
+  ;^[1 byte], menu phase, use for:
+  ; -To avoid necessarily writing tiles every frame, which can cause flickering black bars due to NMI overflows.
+  ; -When writing large number of lines, this is used to write each line per frame, also lowering the risk of NMI overflows.
+  ; -Determine should the tiles be written when the menu appears and when the tiles be cleared (set to tile $FC) when the menu
+  ;  should disappear.
+  ; When opening or switching to different menus, this value should be set to #$00 on the frame the menu appears/changes.
 
  !Freeram_CustomL3Menu_CursorPos = $60
-  ;^1 byte. Contains the position of the cursor. Note, for 2D movement, left and right adjusts this value -1/+1
+  ;^[1 byte] Contains the position of the cursor. Note, for 2D movement, left and right adjusts this value -1/+1
   ; while vertical movement will -NumbOfCols/+NumbOfCols where NumbOfCols is the number of columns, or how many
   ; selections per row.
 

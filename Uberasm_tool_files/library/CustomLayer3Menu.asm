@@ -1,5 +1,9 @@
 ;This main code should be run using "JSL CustomLayer3Menu_ProcessLayer3Menu" from gamemode 14.
 
+;NOTE: To prevent potential NMI overflows (flickering black bars at the top of the
+;screen), Tiles are written only when an "update" occurs, not every frame (such as
+;moving the cursor, changing the settings in a options menu).
+
 	incsrc "../CustomLayer3Menu_Defines/Defines.asm"
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;Process layer 3 menu
@@ -51,9 +55,67 @@ ProcessLayer3Menu:
 			PHK					;\Change bank so that $xxxx,y works correctly
 			PLB					;/
 			
+			LDA !Freeram_CustomL3Menu_WritePhase	;\NMI overflow prevention. Works like this:
+			BNE +					;|There are 3 phases of how this stripe writer writes
+			JSR WriteDigits				;|Phase 1 (!Freeram_CustomL3Menu_WritePhase = #$00): Only write the digits, set the phase to #$01 and terminate the code.
+			LDA #$01				;|Phase 2 (phase = #$01): Only write the cursor, set the phase to #$02, and terminate the code.
+			STA !Freeram_CustomL3Menu_WritePhase	;|Phase 3 (phase = #$02): Allow the player to make inputs to the cursor and adjust the number, and also update the tiles when they're changed.
+			BRA .Done				;|
+			+					;|Phase 1 & 2 also ignores player input since when the player input data, it updates the tiles, but we already did it here.
+			CMP #$02				;|
+			BCS .WritePhaseDone			;|
+			JSR WriteCursor				;|
+			LDA #$02				;|
+			STA !Freeram_CustomL3Menu_WritePhase	;|
+			BRA .Done				;/
+			
+			.WritePhaseDone
 			LDX #$01				;\Moving cursor left and right switches which digit the player wants to adjust
 			JSL DPadMoveCursorOnMenu		;/
 			BCC .AdjustNumber
+			JSR WriteCursor
+			.AdjustNumber
+				LDA !Freeram_CustomL3Menu_CursorPos	;\Depending on your cursor positiuon adjust what number to increase/decrease
+				TAX					;/
+				LDA !Freeram_ControlBackup+1				;\Controller: byetUDLR -> 00byetUD -> 000000UD into the Y index
+				LSR #2							;|to determine to increment or decrement it
+				AND.b #%00000011					;|
+				TAY							;/
+				LDA !Freeram_CustomL3Menu_PasswordStringTable,x		;\Take current digit and increment and decrement
+				CLC							;|
+				ADC IncrementDecrementNumberUI,y			;/
+				CMP #$FF						;\If digit increment/decrement outside the 0-9 range, wrap it.
+				BEQ .WrapTo9						;|
+				CMP #$0A						;|
+				BCS .WrapTo0						;|
+				BRA .In0To9Range					;/
+				.WrapTo9
+					LDA #$09
+					BRA .In0To9Range
+				.WrapTo0
+					LDA #$00
+				.In0To9Range
+				STA !Freeram_CustomL3Menu_PasswordStringTable,x		;>Adjust digit.
+			
+			LDA IncrementDecrementNumberUI,y			;\No increment, no sound (if both up and down are set or clear)
+			BEQ .NoChange						;/
+			
+			.Change
+				LDA #!CustomL3Menu_SoundEffectNumber_NumberAdjust
+				STA !CustomL3Menu_SoundEffectPort_NumberAdjust
+				JSR WriteDigits
+			.NoChange
+			.Done
+			PLB			;>Restore bank
+			RTL
+			
+		IncrementDecrementNumberUI:
+			db $00		;>%00000000 (none pressed)
+			db $FF		;>%00000100 (down pressed)
+			db $01		;>%00001000 (up pressed)
+			db $00		;>%00001100 (both pressed)
+			
+		WriteCursor:
 			.DisplayCursor
 				LDA.b #!CustomL3Menu_NumberInput_XPos	;\XY pos
 				STA $00					;|
@@ -103,105 +165,68 @@ ProcessLayer3Menu:
 					PLX			;>Restore stripe length
 					SEP #$20		;\Finish stripe
 					JSL FinishStripe	;/
-			.AdjustNumber
-				LDA !Freeram_CustomL3Menu_CursorPos	;\Depending on your cursor positiuon adjust what number to increase/decrease
-				TAX					;/
-				LDA !Freeram_ControlBackup+1				;\Controller: byetUDLR -> 00byetUD -> 000000UD into the Y index
-				LSR #2							;|to determine to increment or decrement it
-				AND.b #%00000011					;|
-				TAY							;/
-				LDA !Freeram_CustomL3Menu_PasswordStringTable,x		;\Take current digit and increment and decrement
-				CLC							;|
-				ADC IncrementDecrementNumberUI,y			;/
-				CMP #$FF						;\If digit increment/decrement outside the 0-9 range, wrap it.
-				BEQ .WrapTo9						;|
-				CMP #$0A						;|
-				BCS .WrapTo0						;|
-				BRA .In0To9Range					;/
-				.WrapTo9
-					LDA #$09
-					BRA .In0To9Range
-				.WrapTo0
-					LDA #$00
-				.In0To9Range
-				STA !Freeram_CustomL3Menu_PasswordStringTable,x		;>Adjust digit.
-			
-			LDA IncrementDecrementNumberUI,y			;\No increment, no sound (if both up and down are set or clear)
-			BEQ .NoChange						;/
-			
-			.Change
-				LDA #!CustomL3Menu_SoundEffectNumber_NumberAdjust
-				STA !CustomL3Menu_SoundEffectPort_NumberAdjust
-				..Display
-					LDA.b #!CustomL3Menu_NumberInput_XPos	;\XY pos
-					STA $00					;|
-					LDA.b #!CustomL3Menu_NumberInput_YPos	;|
-					STA $01					;/
-					LDA #$05				;\Layer
-					STA $02					;/
-					STZ $03					;>Direction and RLE
-					LDA !Freeram_CustomL3Menu_UIState	;\Number of cursor positions = number of digits the user can adjust
-					TAX					;|$04-$05 and $06-$07: number of tiles/cursor positions/number of digits
-					LDA Layer3MenuNumberOfCursorPos-1,x	;|
-					INC					;|
-					STA $04					;|
-					STA $06					;|
-					STZ $05					;|
-					STZ $07					;/
-					JSL SetupStripeHeaderAndIndex		;>X (16-bit): Stripe length
-					
-					LDA #$7F				;\$00-$02 Tile numbers (assuming this increments by 2)
-					STA $02					;|$03-$05 Tile properties (assuming this increments by 2)
-					STA $05					;|
-					REP #$21				;|
-					TXA					;|
-					ADC.w #$7F837D+4			;|
-					STA $00					;|
-					TXA					;|
-					CLC					;|
-					ADC.w #$7F837D+4+1			;|
-					STA $03					;|
-					SEP #$20				;/
-					WDM
-					PHX
-					LDX #$0000
-					...Loop
-						....Write
-							LDA !Freeram_CustomL3Menu_PasswordStringTable,x
-							STA [$00]
-							LDA.b #%00111000
-							STA [$03]
-						....Next
-							REP #$21
-							LDA $00
-							ADC #$0002
-							STA $00
-							LDA $03
-							CLC
-							ADC #$0002
-							STA $03
-							SEP #$20
-							INX		;\Loop until all tiles written
-							CPX $06		;|
-							BCC ...Loop	;/
-					PLX
-					STZ $03				;>RLE
-					REP #$20
-					LDA $06				;\Number of tiles
-					STA $04				;/
-					SEP #$20
-					JSL FinishStripe
-					SEP #$30
-			.NoChange
-			.Done
-			PLB			;>Restore bank
-			RTL
-			
-		IncrementDecrementNumberUI:
-			db $00		;>%00000000 (none pressed)
-			db $FF		;>%00000100 (down pressed)
-			db $01		;>%00001000 (up pressed)
-			db $00		;>%00001100 (both pressed)
+				RTS
+		WriteDigits:
+			.DisplayDigits
+				LDA.b #!CustomL3Menu_NumberInput_XPos	;\XY pos
+				STA $00					;|
+				LDA.b #!CustomL3Menu_NumberInput_YPos	;|
+				STA $01					;/
+				LDA #$05				;\Layer
+				STA $02					;/
+				STZ $03					;>Direction and RLE
+				LDA !Freeram_CustomL3Menu_UIState	;\Number of cursor positions = number of digits the user can adjust
+				TAX					;|$04-$05 and $06-$07: number of tiles/cursor positions/number of digits
+				LDA Layer3MenuNumberOfCursorPos-1,x	;|
+				INC					;|
+				STA $04					;|
+				STA $06					;|
+				STZ $05					;|
+				STZ $07					;/
+				JSL SetupStripeHeaderAndIndex		;>X (16-bit): Stripe length
+				
+				LDA #$7F				;\$00-$02 Tile numbers (assuming this increments by 2)
+				STA $02					;|$03-$05 Tile properties (assuming this increments by 2)
+				STA $05					;|
+				REP #$21				;|
+				TXA					;|
+				ADC.w #$7F837D+4			;|
+				STA $00					;|
+				TXA					;|
+				CLC					;|
+				ADC.w #$7F837D+4+1			;|
+				STA $03					;|
+				SEP #$20				;/
+				PHX					;>Preserve number of tiles
+				LDX #$0000
+				..Loop
+					...Write
+						LDA !Freeram_CustomL3Menu_PasswordStringTable,x	;>Tile number (digits)
+						STA [$00]					
+						LDA.b #%00111000				;>Properties (for all 0-9 digits)
+						STA [$03]					
+					...Next
+						REP #$21	;\Next tile
+						LDA $00		;|
+						ADC #$0002	;|
+						STA $00		;|
+						LDA $03		;|
+						CLC		;|
+						ADC #$0002	;|
+						STA $03		;|
+						SEP #$20	;/
+						INX		;\Loop until all tiles written
+						CPX $06		;|
+						BCC ..Loop	;/
+				PLX				;>Restore number of tiles
+				STZ $03				;>RLE
+				REP #$20
+				LDA $06				;\Number of tiles
+				STA $04				;/
+				SEP #$20
+				JSL FinishStripe
+				SEP #$30
+				RTS
 	;--------------------------------------------------------------------------------
 	;Value adjust menu
 	;--------------------------------------------------------------------------------
