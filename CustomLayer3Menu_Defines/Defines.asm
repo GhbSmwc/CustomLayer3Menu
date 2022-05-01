@@ -68,6 +68,10 @@ endif
   ;so that if you have multiple areas also using the confirm state would not "auto-confirm" based
   ;on the last confirmation before it.
 
+ !Freeram_CustomL3Menu_WhichCorrectPasscodeToUse = $0F70|!addr
+  ;^[1 byte], A number representing which correct passcode in the table to use when checking
+  ; the user's inputted number. See "PasscodePointers" in "Uberasm_tool_files/library/CustomLayer3Menu.asm".
+
  !Freeram_ControlBackup = $0DC3|!addr
   ;^[4 bytes] a copy of $15-$18 (in the same order). This is so that when in UI mode,
   ; the player character (Mario/Luigi) cannot move and inputs can only affect what is
@@ -114,6 +118,10 @@ endif
   ;Sound effect when the user selects a menu option that is locked or enters the incorrect passcode
    !CustomL3Menu_SoundEffectPort_Rejected = $1DFC|!addr
    !CustomL3Menu_SoundEffectNumber_Rejected = $2A
+
+  ;Sound effect when the user selects a menu option that gets accepted or enters the correct passcode
+   !CustomL3Menu_SoundEffectPort_Correct = $1DFC|!addr
+   !CustomL3Menu_SoundEffectNumber_Correct = $29
 
   ;Sound effect when increment/decrementing a digit value
    !CustomL3Menu_SoundEffectPort_NumberAdjust = $1DFC|!addr

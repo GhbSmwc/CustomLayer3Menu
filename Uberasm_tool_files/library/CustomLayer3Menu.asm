@@ -80,12 +80,12 @@ ProcessLayer3Menu:
 			JMP.w (.NumberInputPhases,x)
 			
 			.NumberInputPhases
-				dw ..WriteDigits			;>index 0 (X = $00)
-				dw ..WriteCursor			;>index 1 (X = $02)
-				dw ..RespondToUserInput			;>index 2 (X = $04)
-				dw ..ExitingNumberUIPhase		;>index 3 (X = $06)
-				dw ..ExitingNumberUIPhase		;>index 4 (X = $08)
-				dw .Done				;>index 5 (X = $0A)
+				dw ..WriteDigits			;>!Freeram_CustomL3Menu_WritePhase = $00 (X = $00)
+				dw ..WriteCursor			;>!Freeram_CustomL3Menu_WritePhase = $01 (X = $02)
+				dw ..RespondToUserInput			;>!Freeram_CustomL3Menu_WritePhase = $02 (X = $04)
+				dw ..ExitingNumberUIPhase		;>!Freeram_CustomL3Menu_WritePhase = $03 (X = $06)
+				dw ..ExitingNumberUIPhase		;>!Freeram_CustomL3Menu_WritePhase = $04 (X = $08)
+				dw .Done				;>!Freeram_CustomL3Menu_WritePhase = $05 (X = $0A)
 				
 				..WriteDigits
 					JSR WriteDigits
@@ -198,8 +198,9 @@ ProcessLayer3Menu:
 					BNE ...Cancel
 					
 					...Confirm
-						LDA #!CustomL3Menu_SoundEffectNumber_Confirm
-						STA !CustomL3Menu_SoundEffectPort_Confirm
+						;LDA #!CustomL3Menu_SoundEffectNumber_Confirm
+						;STA !CustomL3Menu_SoundEffectPort_Confirm
+						JSR CheckPasscodeCorrect
 						LDA #$01
 						BRA ...SetConfirmFlag
 					...Cancel
@@ -331,6 +332,67 @@ ProcessLayer3Menu:
 				JSL FinishStripe
 				SEP #$30
 				RTS
+		CheckPasscodeCorrect:
+			wdm
+			REP #$30
+			LDA !Freeram_CustomL3Menu_WhichCorrectPasscodeToUse		;\Get an address of the passcode
+			AND.w #$00FF							;|
+			ASL								;|
+			TAX								;|
+			BCS +								;|
+			LDA PasscodePointers,x						;|
+			BRA ++								;|
+			+								;|
+			LDA PasscodePointers+128,x					;/
+			++								;\$00-$02 now contains the 24-bit address of the starting byte of the passcodes.
+			STA $00								;|
+			SEP #$30							;|
+			LDA.b #PasscodePointers>>16					;|
+			STA $02								;/
+			LDA !Freeram_CustomL3Menu_UIState				;\Obtain password character length, based on how many possible cursor positions
+			TAX								;|
+			LDA Layer3MenuNumberOfCursorPos-1,x				;\I don't think LDX Table,x exist.
+			TAY								;/
+			TAX
+			;X and Y is now the number of characters -1 of the correct passcode ([$xx],x does not exist)
+			.Loop
+				LDA !Freeram_CustomL3Menu_PasswordStringTable,x		;\Check each character (digits) and if any character is does not match
+				CMP [$00],y						;|break loop and play "incorrect"
+				BNE .IncorrectPasscode					;|
+				..Next							;|
+					DEY
+					DEX						;|
+					BPL .Loop					;/
+			.CorrectPasscode
+				LDA #!CustomL3Menu_SoundEffectNumber_Correct		;\Otherwise if finishes the loop with all characters matching, then play "correct"
+				STA !CustomL3Menu_SoundEffectPort_Correct		;/
+				RTS
+			.IncorrectPasscode
+				LDA #!CustomL3Menu_SoundEffectNumber_Rejected
+				STA !CustomL3Menu_SoundEffectPort_Rejected
+				RTS
+	;--------------------------------------------------------------------------------
+	;List of passcode. Number of characters to check each is based on
+	;"Layer3MenuNumberOfCursorPos".
+	;--------------------------------------------------------------------------------
+		PasscodePointers:
+			;These are pointers, every 2 bytes here is a pointer to 
+			;a list of passwords. To add more, just add [dw Label]
+			;at the bottom
+			dw Passcode1		;>!Freeram_CustomL3Menu_WhichCorrectPasscodeToUse = $00 (X = $00)
+			dw Passcode2		;>!Freeram_CustomL3Menu_WhichCorrectPasscodeToUse = $01 (X = $02)
+			dw Passcode3		;>!Freeram_CustomL3Menu_WhichCorrectPasscodeToUse = $02 (X = $04)
+		;These are the passcodes. Each byte is each character in the same order
+		;appearing in the game. Only use values $00-$09 else the password will
+		;always reject.
+		;
+		;Make sure the number of bytes here matches with Layer3MenuNumberOfCursorPos
+		Passcode1:
+			db $01,$02,$03,$04
+		Passcode2:
+			db $02,$04,$06,$08
+		Passcode3:
+			db $09,$08,$07,$06
 	;--------------------------------------------------------------------------------
 	;Value adjust menu
 	;--------------------------------------------------------------------------------
@@ -360,9 +422,9 @@ ProcessLayer3Menu:
 	;0 to NumberOfOOptions-1).
 	;--------------------------------------------------------------------------------
 		Layer3MenuNumberOfCursorPos:
-			db 4-1		;>State 1
-			db 4-1		;>State 2
-			db 10-1		;>State 3
+			db 4-1		;>!Freeram_CustomL3Menu_UIState = $01
+			db 4-1		;>!Freeram_CustomL3Menu_UIState = $02
+			db 4-1		;>!Freeram_CustomL3Menu_UIState = $03
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;Cursor move handler
 ;Handles D-pad to move the cursor. Not suitable for 2D-like menu.
