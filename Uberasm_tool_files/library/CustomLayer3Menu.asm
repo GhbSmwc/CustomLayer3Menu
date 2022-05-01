@@ -25,21 +25,32 @@ ProcessLayer3Menu:
 		TAX
 		LDA Layer3MenuBehavior,x
 		STA $00			;>$00 = Index of what menu type of the current menu being on.
-		ASL
-		TAX
-		BCS +
+		ASL			;\Values >= 128 would have bit 7 being set, which
+		TAX			;|"overflows" when a left-shift is performed. When this happens
+		BCS +			;/the carry flag is set, so we can make it use a separate table.
 		JMP.w (MenuStates-2,x)
 		+
 		JMP.w (MenuStates-2+128,x)
 	
 	MenuStates:
-		dw MenuSelection
-		dw NumberInput
-		dw ValueAdjustMenu
+		dw ExitMenuEnablePlayerMovement		;Index 1 (X = $02)
+		dw MenuSelection			;Index 2 (X = $04)
+		dw NumberInput				;Index 3 (X = $06)
+		dw ValueAdjustMenu			;Index 4 (X = $08)
 	;--------------------------------------------------------------------------------
 	;These are codes that handle the behavior of each menu types
 	;$00 contains the index of what menu type of the current menu.
 	;--------------------------------------------------------------------------------
+	;--------------------------------------------------------------------------------
+	;Close menu and enable player movement
+	;--------------------------------------------------------------------------------
+	ExitMenuEnablePlayerMovement:
+		LDA #$00				;\Close menu so that the following code does not execute every frame
+		STA !Freeram_CustomL3Menu_UIState	;/
+		STA $9D					;\Enable player movement
+		STA $71					;/
+		STA !Freeram_CustomL3Menu_WritePhase
+		RTL
 	;--------------------------------------------------------------------------------
 	;This one is a standard menu
 	;--------------------------------------------------------------------------------
@@ -118,24 +129,23 @@ ProcessLayer3Menu:
 					INC					;|
 					STA !Freeram_CustomL3Menu_WritePhase	;/
 					CMP #$05				;\If cleared both the digits and cursor,
-					;Uncomment this if you want every number input in your game to instantly close out and
+					;Uncomment this if you want every number input in your game to close out and
 					;resume gameplay when canceling or confirming.
 					;BCC +					;/then reset the entire menu
-					;LDA #$00				;\Reset entire menu (except the passcode string)
-					;STA !Freeram_CustomL3Menu_UIState	;|
-					;STA !Freeram_CustomL3Menu_WritePhase	;/
-					;STZ $71					;\Re-enable player movement
-					;STZ $9D					;/
+					;LDA #$01				;\Reset entire menu (except the passcode string)
+					;STA !Freeram_CustomL3Menu_UIState	;/
 					;+
-					BRA .Done
+					JMP .Done
 					...YPositionToClearDigitsThenCursor
 						db !CustomL3Menu_NumberInput_YPos
 						db !CustomL3Menu_NumberInput_YPos+1
 
 				..RespondToUserInput
-					wdm
 					LDA !Freeram_ControlBackup+1+!CustomL3Menu_WhichControllerDataToConfirm
 					AND.b #!CustomL3Menu_ButtonConfirm
+					BNE ..ConfirmOrCancel
+					LDA !Freeram_ControlBackup+1+!CustomL3Menu_WhichControllerDataToConfirm2
+					AND.b #!CustomL3Menu_ButtonConfirm2
 					BNE ..ConfirmOrCancel
 					LDA !Freeram_ControlBackup+1+!CustomL3Menu_WhichControllerDataToCancel
 					AND.b #!CustomL3Menu_ButtonCancel
@@ -180,14 +190,21 @@ ProcessLayer3Menu:
 					LDA !Freeram_ControlBackup+1+!CustomL3Menu_WhichControllerDataToConfirm
 					AND.b #!CustomL3Menu_ButtonConfirm
 					BNE ...Confirm
+					LDA !Freeram_ControlBackup+1+!CustomL3Menu_WhichControllerDataToConfirm2
+					AND.b #!CustomL3Menu_ButtonConfirm2
+					BNE ...Confirm
 					LDA !Freeram_ControlBackup+1+!CustomL3Menu_WhichControllerDataToCancel
 					AND.b #!CustomL3Menu_ButtonCancel
 					BNE ...Cancel
 					
 					...Confirm
+						LDA #!CustomL3Menu_SoundEffectNumber_Confirm
+						STA !CustomL3Menu_SoundEffectPort_Confirm
 						LDA #$01
 						BRA ...SetConfirmFlag
 					...Cancel
+						LDA #!CustomL3Menu_SoundEffectNumber_Cancel
+						STA !CustomL3Menu_SoundEffectPort_Cancel
 						LDA #$02
 					...SetConfirmFlag
 						STA !Freeram_CustomL3Menu_ConfirmState

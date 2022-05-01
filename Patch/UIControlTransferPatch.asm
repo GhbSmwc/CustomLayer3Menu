@@ -50,18 +50,26 @@ incsrc "../CustomLayer3Menu_Defines/Defines.asm"
 			BEQ .Done				;/
 	
 			..TransferControlsAndClear
-				PHX
-				LDX #$03			;>Handle 4 bytes of controller bytes.
-	
-				...Loop
-					LDA $15,x				;\Transfer controls
-					STA !Freeram_ControlBackup,x		;/
-					STZ $15,x				;>And make everything ignore the "normal" controls
-		
-					....Next
-						DEX				;\Next controller byte.
-						BPL ...Loop			;/
-		PLX
+;				PHX
+;				LDX #$03			;>Handle 4 bytes of controller bytes.
+;	
+;				...Loop
+;					LDA $15,x				;\Transfer controls
+;					STA !Freeram_ControlBackup,x		;/
+;					STZ $15,x				;>And make everything ignore the "normal" controls
+;		
+;					....Next
+;						DEX				;\Next controller byte.
+;						BPL ...Loop			;/
+;				PLX
+				LDA $15				;\Unrolled loop because the controller data processing is during Vblank.
+				STA !Freeram_ControlBackup	;|
+				LDA $16				;|
+				STA !Freeram_ControlBackup+1	;|
+				LDA $17				;|
+				STA !Freeram_ControlBackup+2	;|
+				LDA $18				;|
+				STA !Freeram_ControlBackup+3	;/
 		RTL
 		.Done
 			RTL

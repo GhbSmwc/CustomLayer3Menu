@@ -22,6 +22,21 @@ if defined("sa1") == 0
 endif
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;Freeram
+;
+;NOTE: Some of SMW's RAM are not cleared and may be arbitrary values when specifying what RAM to use, which may cause glitches.
+;To avoid potential problems, I suggest using this code for uberasm tool code:
+;	
+;	incsrc "../CustomLayer3Menu_Defines/Defines.asm"
+;	init:
+;		LDA #$00
+;		STA !Freeram_CustomL3Menu_UIState
+;		STA !Freeram_CustomL3Menu_WritePhase
+;		STA !Freeram_CustomL3Menu_CursorPos
+;		LDX.b #(!LongestPasswordLengthInEntireGame)-1	;>!LongestPasswordLengthInEntireGame is the highest number of characters of your entire game
+;		STA !Freeram_CustomL3Menu_PasswordStringTable
+;		BPL -
+;		STA !Freeram_CustomL3Menu_ConfirmState
+;		RTL
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
  !Freeram_CustomL3Menu_UIState = $58
   ;^[1 byte], menu state, used to display what menu/passcode mode. If value stored here is 0, then do nothing, if any nonzero value
@@ -49,6 +64,9 @@ endif
   ; -#$00 = Has not (menu waiting)
   ; -#$01 = Yes.
   ; -#$00 = Canceled.
+  ;Note: every time you have codes that read this, each time that is done, make sure you clear it
+  ;so that if you have multiple areas also using the confirm state would not "auto-confirm" based
+  ;on the last confirmation before it.
 
  !Freeram_ControlBackup = $0DC3|!addr
   ;^[4 bytes] a copy of $15-$18 (in the same order). This is so that when in UI mode,
@@ -71,8 +89,14 @@ endif
  ;Each bit in the binary number is any button that would trigger a "confirm" or "cancel"
   !CustomL3Menu_WhichControllerDataToConfirm = 2 ;>0 = Use $15-$16's byetUDLR input, 2 = Use $17-$18's axlr---- input, don't use other values.
   !CustomL3Menu_ButtonConfirm = %10000000 ;>Which bit to check that would "confirm" based on what input type above.
+  
+  !CustomL3Menu_WhichControllerDataToConfirm2 = 0 ;>0 = Use $15-$16's byetUDLR input, 2 = Use $17-$18's axlr---- input, don't use other values.
+  !CustomL3Menu_ButtonConfirm2 = %10000000 ;>Which bit to check that would "confirm" based on what input type above.
+   ;^Vanilla SMW have A and B 1-frame buttons acting as "confirm" on the title screen and X and Y being the "Cancel". Problem is is while X and Y are
+   ; on the same bit for $16/$18, this is not true for the B button.
+  
   !CustomL3Menu_WhichControllerDataToCancel = 0 ;>0 = Use $15-$16's byetUDLR input, 2 = Use $17-$18's axlr---- input, don't use other values.
-  !CustomL3Menu_ButtonCancel = %10000000 ;>Which bit to check that would "cancel" based on what input type above.
+  !CustomL3Menu_ButtonCancel = %01000000 ;>Which bit to check that would "cancel" based on what input type above.
 
  ;Sound effects. $00 for the sound effect = nothing
   ;Sound effect of moving cursor
@@ -82,6 +106,10 @@ endif
   ;Sound effect for confirming
    !CustomL3Menu_SoundEffectPort_Confirm = $1DFC|!addr
    !CustomL3Menu_SoundEffectNumber_Confirm = $01
+   
+  ;Sound effect for canceling
+   !CustomL3Menu_SoundEffectPort_Cancel = $1DF9|!addr
+   !CustomL3Menu_SoundEffectNumber_Cancel = $01
 
   ;Sound effect when the user selects a menu option that is locked or enters the incorrect passcode
    !CustomL3Menu_SoundEffectPort_Rejected = $1DFC|!addr
