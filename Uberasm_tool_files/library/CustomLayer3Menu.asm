@@ -160,7 +160,7 @@ ProcessLayer3Menu:
 							ADC #$0002		;|
 							STA $00			;/
 							INX			;\Loop until all tiles written
-							CPX #$0004		;|
+							CPX $04			;|
 							BCC ..Loop		;/
 					PLX			;>Restore stripe length
 					SEP #$20		;\Finish stripe
