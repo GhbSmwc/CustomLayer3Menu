@@ -7,4 +7,5 @@ init:
 	STA !Freeram_CustomL3Menu_UIState
 	LDA #$00
 	STA !Freeram_CustomL3Menu_CursorPos
-	
+	STA !Freeram_CustomL3Menu_WritePhase
+	RTL

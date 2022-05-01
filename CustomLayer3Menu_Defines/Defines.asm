@@ -43,6 +43,11 @@ endif
  !Freeram_CustomL3Menu_PasswordStringTable = $0F5E|!addr
   ;^[Max_Number_of_char_in_game] bytes. Contains the string of characters entered by the user.
   ; This is used by the number password UI. Make sure this is all initialized to 0.
+ !Freeram_CustomL3Menu_ConfirmState = $0F71|!addr
+  ;[1 byte], a flag used for "signaling" that the user has confirmed:
+  ; -#$00 = Has not (menu waiting)
+  ; -#$01 = Yes.
+  ; -#$00 = Canceled.
 
  !Freeram_ControlBackup = $0DC3|!addr
   ;^[4 bytes] a copy of $15-$18 (in the same order). This is so that when in UI mode,
@@ -63,9 +68,9 @@ endif
  ;https://smwc.me/m/smw/ram/7E0016/
  ;https://smwc.me/m/smw/ram/7E0018/
  ;Each bit in the binary number is any button that would trigger a "confirm" or "cancel"
-  !CustomL3Menu_WhichControllerDataToConfirm = 1 ;>0 = Use $15-$16's byetUDLR input, 1 = Use $17-$18's axlr---- input
+  !CustomL3Menu_WhichControllerDataToConfirm = 2 ;>0 = Use $15-$16's byetUDLR input, 2 = Use $17-$18's axlr---- input, don't use other values.
   !CustomL3Menu_ButtonConfirm = %10000000 ;>Which bit to check that would "confirm" based on what input type above.
-  !CustomL3Menu_WhichControllerDataToCancel = 0 ;>0 = Use $15-$16's byetUDLR input, 1 = Use $17-$18's axlr---- input
+  !CustomL3Menu_WhichControllerDataToCancel = 0 ;>0 = Use $15-$16's byetUDLR input, 2 = Use $17-$18's axlr---- input, don't use other values.
   !CustomL3Menu_ButtonCancel = %10000000 ;>Which bit to check that would "cancel" based on what input type above.
 
  ;Sound effects. $00 for the sound effect = nothing

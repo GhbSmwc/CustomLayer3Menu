@@ -48,66 +48,153 @@ ProcessLayer3Menu:
 			JSL DPadMoveCursorOnMenu
 			RTL
 	;--------------------------------------------------------------------------------
-	;Number input
+	;Number input (passcode)
 	;--------------------------------------------------------------------------------
 		NumberInput:
 			PHB					;>Preserve bank
 			PHK					;\Change bank so that $xxxx,y works correctly
 			PLB					;/
 			
-			LDA !Freeram_CustomL3Menu_WritePhase	;\NMI overflow prevention. Works like this:
-			BNE +					;|There are 3 phases of how this stripe writer writes
-			JSR WriteDigits				;|Phase 1 (!Freeram_CustomL3Menu_WritePhase = #$00): Only write the digits, set the phase to #$01 and terminate the code.
-			LDA #$01				;|Phase 2 (phase = #$01): Only write the cursor, set the phase to #$02, and terminate the code.
-			STA !Freeram_CustomL3Menu_WritePhase	;|Phase 3 (phase = #$02): Allow the player to make inputs to the cursor and adjust the number, and also update the tiles when they're changed.
-			BRA .Done				;|
-			+					;|Phase 1 & 2 also ignores player input since when the player input data, it updates the tiles, but we already did it here.
-			CMP #$02				;|
-			BCS .WritePhaseDone			;|
-			JSR WriteCursor				;|
-			LDA #$02				;|
-			STA !Freeram_CustomL3Menu_WritePhase	;|
-			BRA .Done				;/
+			;NMI overflow prevention. Works like this:
+			;There are 3 phases of how this stripe writer writes
+			;Phase 1 (!Freeram_CustomL3Menu_WritePhase = #$00): Only write the digits, set the phase to #$01 and terminate the code.
+			;Phase 2 (phase = #$01): Only write the cursor, set the phase to #$02, and terminate the code.
+			;Phase 3 (phase = #$02): Allow the player to make inputs to the cursor and adjust the number, and also update the tiles when they're changed.
+			;Phase 4 (phase = #$03): Clears out the tiles when the player exits out of the passcode UI.
+			;
+			;Phase 1 & 2 also ignores player input since when the player input data, it updates the tiles, but we already did it here.
+			LDA !Freeram_CustomL3Menu_WritePhase
+			ASL
+			TAX
+			JMP.w (.NumberInputPhases,x)
 			
-			.WritePhaseDone
-			LDX #$01				;\Moving cursor left and right switches which digit the player wants to adjust
-			JSL DPadMoveCursorOnMenu		;/
-			BCC .AdjustNumber
-			JSR WriteCursor
-			.AdjustNumber
-				LDA !Freeram_CustomL3Menu_CursorPos	;\Depending on your cursor positiuon adjust what number to increase/decrease
-				TAX					;/
-				LDA !Freeram_ControlBackup+1				;\Controller: byetUDLR -> 00byetUD -> 000000UD into the Y index
-				LSR #2							;|to determine to increment or decrement it
-				AND.b #%00000011					;|
-				TAY							;/
-				LDA !Freeram_CustomL3Menu_PasswordStringTable,x		;\Take current digit and increment and decrement
-				CLC							;|
-				ADC IncrementDecrementNumberUI,y			;/
-				CMP #$FF						;\If digit increment/decrement outside the 0-9 range, wrap it.
-				BEQ .WrapTo9						;|
-				CMP #$0A						;|
-				BCS .WrapTo0						;|
-				BRA .In0To9Range					;/
-				.WrapTo9
-					LDA #$09
-					BRA .In0To9Range
-				.WrapTo0
+			.NumberInputPhases
+				dw ..WriteDigits			;>index 0 (X = $00)
+				dw ..WriteCursor			;>index 1 (X = $02)
+				dw ..RespondToUserInput			;>index 2 (X = $04)
+				dw ..ExitingNumberUIPhase		;>index 3 (X = $06)
+				dw ..ExitingNumberUIPhase		;>index 4 (X = $08)
+				dw .Done				;>index 5 (X = $0A)
+				
+				..WriteDigits
+					JSR WriteDigits
+					LDA #$01
+					STA !Freeram_CustomL3Menu_WritePhase
 					LDA #$00
-				.In0To9Range
-				STA !Freeram_CustomL3Menu_PasswordStringTable,x		;>Adjust digit.
-			
-			LDA IncrementDecrementNumberUI,y			;\No increment, no sound (if both up and down are set or clear)
-			BEQ .NoChange						;/
-			
-			.Change
-				LDA #!CustomL3Menu_SoundEffectNumber_NumberAdjust
-				STA !CustomL3Menu_SoundEffectPort_NumberAdjust
-				JSR WriteDigits
-			.NoChange
+					STA !Freeram_CustomL3Menu_ConfirmState
+					JMP .Done
+				..WriteCursor
+					JSR WriteCursor
+					LDA #$02
+					STA !Freeram_CustomL3Menu_WritePhase
+					JMP .Done
+				..ExitingNumberUIPhase
+					LDA.b #!CustomL3Menu_NumberInput_XPos		;\X pos
+					STA $00						;/
+					TXA						;\Y pos
+					LSR						;|If phase index 3-4, they become 0-1 for table indexing.
+					SEC						;|for the Y position
+					SBC #$03					;|
+					TAX						;|
+					LDA ...YPositionToClearDigitsThenCursor,x	;|
+					STA $01						;/
+					LDA #$05				;\Layer
+					STA $02					;/
+					LDA.b #%01000000			;\Direction and RLE
+					STA $03					;/
+					LDA !Freeram_CustomL3Menu_UIState	;\Number of cursor positions = number of digits the user can adjust
+					TAX					;|
+					LDA Layer3MenuNumberOfCursorPos-1,x	;|
+					INC					;|
+					STA $04					;|
+					STZ $05					;/
+					JSL SetupStripeHeaderAndIndex		;>X (16-bit) = Length of stripe data
+					REP #$30
+					LDA #$38FC				;\Blank tile
+					STA.l $7F837D+4,x			;/
+					SEP #$30
+					JSL FinishStripe
+					LDA !Freeram_CustomL3Menu_WritePhase	;\Next phase
+					INC					;|
+					STA !Freeram_CustomL3Menu_WritePhase	;/
+					CMP #$05				;\If cleared both the digits and cursor,
+					;Uncomment this if you want every number input in your game to instantly close out and
+					;resume gameplay when canceling or confirming.
+					;BCC +					;/then reset the entire menu
+					;LDA #$00				;\Reset entire menu (except the passcode string)
+					;STA !Freeram_CustomL3Menu_UIState	;|
+					;STA !Freeram_CustomL3Menu_WritePhase	;/
+					;STZ $71					;\Re-enable player movement
+					;STZ $9D					;/
+					;+
+					BRA .Done
+					...YPositionToClearDigitsThenCursor
+						db !CustomL3Menu_NumberInput_YPos
+						db !CustomL3Menu_NumberInput_YPos+1
+
+				..RespondToUserInput
+					LDA !Freeram_ControlBackup+1+!CustomL3Menu_WhichControllerDataToConfirm
+					AND.b #!CustomL3Menu_ButtonConfirm
+					BNE ..ConfirmOrCancel
+					LDA !Freeram_ControlBackup+1+!CustomL3Menu_WhichControllerDataToCancel
+					AND.b #!CustomL3Menu_ButtonCancel
+					BNE ..ConfirmOrCancel
+					LDX #$01				;\Moving cursor left and right switches which digit the player wants to adjust
+					JSL DPadMoveCursorOnMenu		;/
+					BCC ...AdjustNumber			;>Don't display cursor during mid-moving (during default placement of the cursor graphic)
+					JSR WriteCursor
+					...AdjustNumber
+					LDA !Freeram_CustomL3Menu_CursorPos	;\Depending on your cursor positiuon adjust what number to increase/decrease
+					TAX					;/
+					LDA !Freeram_ControlBackup+1				;\Controller: byetUDLR -> 00byetUD -> 000000UD into the Y index
+					LSR #2							;|to determine to increment or decrement it
+					AND.b #%00000011					;|
+					TAY							;/
+					LDA !Freeram_CustomL3Menu_PasswordStringTable,x		;\Take current digit and increment and decrement
+					CLC							;|
+					ADC IncrementDecrementNumberUI,y			;/
+					CMP #$FF						;\If digit increment/decrement outside the 0-9 range, wrap it.
+					BEQ ...WrapTo9						;|
+					CMP #$0A						;|
+					BCS ...WrapTo0						;|
+					BRA ...In0To9Range					;/
+					...WrapTo9
+						LDA #$09
+						BRA ...In0To9Range
+					...WrapTo0
+						LDA #$00
+					...In0To9Range
+					STA !Freeram_CustomL3Menu_PasswordStringTable,x		;>Adjust digit.
+					LDA IncrementDecrementNumberUI,y			;\No increment, no sound (if both up and down are set or clear)
+					BEQ ...NoChange						;/
+					...Change
+						LDA #!CustomL3Menu_SoundEffectNumber_NumberAdjust
+						STA !CustomL3Menu_SoundEffectPort_NumberAdjust
+						JSR WriteDigits
+					...NoChange
+						BRA .Done
+				..ConfirmOrCancel
+					wdm
+					LDA #$03								;\Clear menu on next frame.
+					STA !Freeram_CustomL3Menu_WritePhase					;/
+					LDA !Freeram_ControlBackup+1+!CustomL3Menu_WhichControllerDataToConfirm
+					AND.b #!CustomL3Menu_ButtonConfirm
+					BNE ...Confirm
+					LDA !Freeram_ControlBackup+1+!CustomL3Menu_WhichControllerDataToCancel
+					AND.b #!CustomL3Menu_ButtonCancel
+					BNE ...Cancel
+					
+					...Confirm
+						LDA #$01
+						BRA ...SetConfirmFlag
+					...Cancel
+						LDA #$02
+					...SetConfirmFlag
+						STA !Freeram_CustomL3Menu_ConfirmState
+						BRA .Done
 			.Done
-			PLB			;>Restore bank
-			RTL
+				PLB			;>Restore bank
+				RTL
 			
 		IncrementDecrementNumberUI:
 			db $00		;>%00000000 (none pressed)
