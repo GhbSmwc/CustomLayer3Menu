@@ -133,6 +133,7 @@ ProcessLayer3Menu:
 						db !CustomL3Menu_NumberInput_YPos+1
 
 				..RespondToUserInput
+					wdm
 					LDA !Freeram_ControlBackup+1+!CustomL3Menu_WhichControllerDataToConfirm
 					AND.b #!CustomL3Menu_ButtonConfirm
 					BNE ..ConfirmOrCancel
@@ -174,7 +175,6 @@ ProcessLayer3Menu:
 					...NoChange
 						BRA .Done
 				..ConfirmOrCancel
-					wdm
 					LDA #$03								;\Clear menu on next frame.
 					STA !Freeram_CustomL3Menu_WritePhase					;/
 					LDA !Freeram_ControlBackup+1+!CustomL3Menu_WhichControllerDataToConfirm

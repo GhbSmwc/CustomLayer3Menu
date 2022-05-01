@@ -42,27 +42,28 @@ incsrc "../CustomLayer3Menu_Defines/Defines.asm"
 	freecode
 	
 	MoveControllerToUI:
-		LDA !Freeram_CustomL3Menu_UIState	;\If UI mode, move controls to UI.
-		BEQ .Restore				;/
-	
-		.TransferControlsAndClear
-			PHX
-			LDX #$03			;>Handle 4 bytes of controller bytes.
-	
-		..Loop
-			LDA $15,x				;\Transfer controls
-			STA !Freeram_ControlBackup,x		;/
-			STZ $15,x				;>And make everything ignore the "normal" controls
-		
-				...Next
-					DEX				;\Next controller byte.
-					BPL ..Loop			;/
-		PLX
-		RTL
-	
 		.Restore
 			LDA $0DA8|!addr,x		;\Restore controls.
 			STA $18				;/
+		.Main
+			LDA !Freeram_CustomL3Menu_UIState	;\If UI mode, move controls to UI.
+			BEQ .Done				;/
+	
+			..TransferControlsAndClear
+				PHX
+				LDX #$03			;>Handle 4 bytes of controller bytes.
+	
+				...Loop
+					LDA $15,x				;\Transfer controls
+					STA !Freeram_ControlBackup,x		;/
+					STZ $15,x				;>And make everything ignore the "normal" controls
+		
+					....Next
+						DEX				;\Next controller byte.
+						BPL ...Loop			;/
+		PLX
+		RTL
+		.Done
 			RTL
 	
 	FixHDMA:

@@ -43,6 +43,7 @@ endif
  !Freeram_CustomL3Menu_PasswordStringTable = $0F5E|!addr
   ;^[Max_Number_of_char_in_game] bytes. Contains the string of characters entered by the user.
   ; This is used by the number password UI. Make sure this is all initialized to 0.
+
  !Freeram_CustomL3Menu_ConfirmState = $0F71|!addr
   ;[1 byte], a flag used for "signaling" that the user has confirmed:
   ; -#$00 = Has not (menu waiting)
