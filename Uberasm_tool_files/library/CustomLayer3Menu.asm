@@ -22,9 +22,6 @@ ProcessLayer3Menu:
 	.SkipFreeze
 	
 	.MenuTypeHandler
-		TAX
-		LDA Layer3MenuBehavior,x
-		STA $00			;>$00 = Index of what menu type of the current menu being on.
 		ASL			;\Values >= 128 would have bit 7 being set, which
 		TAX			;|"overflows" when a left-shift is performed. When this happens
 		BCS +			;/the carry flag is set, so we can make it use a separate table.
@@ -33,10 +30,10 @@ ProcessLayer3Menu:
 		JMP.w (MenuStates-2+128,x)
 	
 	MenuStates:
-		dw ExitMenuEnablePlayerMovement		;Index 1 (X = $02)
-		dw MenuSelection			;Index 2 (X = $04)
-		dw NumberInput				;Index 3 (X = $06)
-		dw ValueAdjustMenu			;Index 4 (X = $08)
+		dw ExitMenuEnablePlayerMovement		;!Freeram_CustomL3Menu_UIState = $01 (X = $02)
+		dw MenuSelection			;!Freeram_CustomL3Menu_UIState = $02 (X = $04)
+		dw NumberInput				;!Freeram_CustomL3Menu_UIState = $03 (X = $06)
+		dw ValueAdjustMenu			;!Freeram_CustomL3Menu_UIState = $04 (X = $08)
 	;--------------------------------------------------------------------------------
 	;These are codes that handle the behavior of each menu types
 	;$00 contains the index of what menu type of the current menu.
@@ -65,7 +62,7 @@ ProcessLayer3Menu:
 			PHB					;>Preserve bank
 			PHK					;\Change bank so that $xxxx,y works correctly
 			PLB					;/
-			
+			WDM
 			;NMI overflow prevention. Works like this:
 			;There are 3 phases of how this stripe writer writes
 			;Phase 1 (!Freeram_CustomL3Menu_WritePhase = #$00): Only write the digits, set the phase to #$01 and terminate the code.
@@ -91,8 +88,6 @@ ProcessLayer3Menu:
 					JSR WriteDigits
 					LDA #$01
 					STA !Freeram_CustomL3Menu_WritePhase
-					LDA #$00
-					STA !Freeram_CustomL3Menu_ConfirmState
 					JMP .Done
 				..WriteCursor
 					JSR WriteCursor
@@ -109,17 +104,15 @@ ProcessLayer3Menu:
 					TAX						;|
 					LDA ...YPositionToClearDigitsThenCursor,x	;|
 					STA $01						;/
-					LDA #$05				;\Layer
-					STA $02					;/
-					LDA.b #%01000000			;\Direction and RLE
-					STA $03					;/
-					LDA !Freeram_CustomL3Menu_UIState	;\Number of cursor positions = number of digits the user can adjust
-					TAX					;|
-					LDA Layer3MenuNumberOfCursorPos-1,x	;|
-					INC					;|
-					STA $04					;|
-					STZ $05					;/
-					JSL SetupStripeHeaderAndIndex		;>X (16-bit) = Length of stripe data
+					LDA #$05					;\Layer
+					STA $02						;/
+					LDA.b #%01000000				;\Direction and RLE
+					STA $03						;/
+					LDA !Freeram_CustomL3Menu_NumberOfCursorPositions	;\Number of cursor positions = number of digits the user can adjust
+					INC							;|
+					STA $04							;|
+					STZ $05							;/
+					JSL SetupStripeHeaderAndIndex			;>X (16-bit) = Length of stripe data
 					REP #$30
 					LDA #$38FC				;\Blank tile
 					STA.l $7F837D+4,x			;/
@@ -161,7 +154,7 @@ ProcessLayer3Menu:
 					LSR #2							;|to determine to increment or decrement it
 					AND.b #%00000011					;|
 					TAY							;/
-					LDA !Freeram_CustomL3Menu_PasswordStringTable,x		;\Take current digit and increment and decrement
+					LDA !Freeram_CustomL3Menu_DigitPasscodeUserInput,x	;\Take current digit and increment and decrement
 					CLC							;|
 					ADC IncrementDecrementNumberUI,y			;/
 					CMP #$FF						;\If digit increment/decrement outside the 0-9 range, wrap it.
@@ -175,7 +168,7 @@ ProcessLayer3Menu:
 					...WrapTo0
 						LDA #$00
 					...In0To9Range
-					STA !Freeram_CustomL3Menu_PasswordStringTable,x		;>Adjust digit.
+					STA !Freeram_CustomL3Menu_DigitPasscodeUserInput,x	;>Adjust digit.
 					LDA IncrementDecrementNumberUI,y			;\No increment, no sound (if both up and down are set or clear)
 					BEQ ...NoChange						;/
 					...Change
@@ -200,15 +193,18 @@ ProcessLayer3Menu:
 					...Confirm
 						;LDA #!CustomL3Menu_SoundEffectNumber_Confirm
 						;STA !CustomL3Menu_SoundEffectPort_Confirm
-						JSR CheckPasscodeCorrect
-						LDA #$01
+						;JSR CheckPasscodeCorrect
+						STZ $00
 						BRA ...SetConfirmFlag
 					...Cancel
 						LDA #!CustomL3Menu_SoundEffectNumber_Cancel
 						STA !CustomL3Menu_SoundEffectPort_Cancel
-						LDA #$02
+						LDA #$01
+						STA $00
 					...SetConfirmFlag
-						STA !Freeram_CustomL3Menu_ConfirmState
+						LDA #$5C						;\Setup a JML to a subroutine supplied from elsewhere such as a block door.
+						STA !Freeram_CustomL3Menu_PasscodeCallBackSubroutine	;/
+						JSL !Freeram_CustomL3Menu_PasscodeCallBackSubroutine	;>And now JSL to there, which as expected, JMLs to a supplied code. Once RTL, should go to the instruction below here.
 						BRA .Done
 			.Done
 				PLB			;>Restore bank
@@ -229,12 +225,10 @@ ProcessLayer3Menu:
 				LDA #$05				;\Layer
 				STA $02					;/
 				STZ $03					;>Direction and RLE
-				LDA !Freeram_CustomL3Menu_UIState	;\Number of cursor positions = number of digits the user can adjust
-				TAX					;|
-				LDA Layer3MenuNumberOfCursorPos-1,x	;|
-				INC					;|
-				STA $04					;|
-				STZ $05					;/
+				LDA !Freeram_CustomL3Menu_NumberOfCursorPositions	;\Number of cursor positions or digits
+				INC							;|
+				STA $04							;|
+				STZ $05							;/
 				JSL SetupStripeHeaderAndIndex		;>X (16-bit) = Length of stripe data
 				LDA #$7F				;\$00-$02: A RAM address to safely write stripe image
 				STA $02					;|
@@ -280,18 +274,16 @@ ProcessLayer3Menu:
 				LDA #$05				;\Layer
 				STA $02					;/
 				STZ $03					;>Direction and RLE
-				LDA !Freeram_CustomL3Menu_UIState	;\Number of cursor positions = number of digits the user can adjust
-				TAX					;|$04-$05 and $06-$07: number of tiles/cursor positions/number of digits
-				LDA Layer3MenuNumberOfCursorPos-1,x	;|
-				INC					;|
-				STA $04					;|
-				STA $06					;|
-				STZ $05					;|
-				STZ $07					;/
+				LDA !Freeram_CustomL3Menu_NumberOfCursorPositions	;\Number of cursor positions = number of digits the user can adjust
+				INC							;|
+				STA $04							;|
+				STA $06							;|
+				STZ $05							;|
+				STZ $07							;/
 				JSL SetupStripeHeaderAndIndex		;>X (16-bit): Stripe length
 				
-				LDA #$7F				;\$00-$02 Tile numbers (assuming this increments by 2)
-				STA $02					;|$03-$05 Tile properties (assuming this increments by 2)
+				LDA #$7F				;\$00-$02 Tile numbers address (assuming this increments by 2)
+				STA $02					;|$03-$05 Tile properties address (assuming this increments by 2)
 				STA $05					;|
 				REP #$21				;|
 				TXA					;|
@@ -302,11 +294,11 @@ ProcessLayer3Menu:
 				ADC.w #$7F837D+4+1			;|
 				STA $03					;|
 				SEP #$20				;/
-				PHX					;>Preserve number of tiles
+				PHX					;>Preserve number of bytes (stripe length)
 				LDX #$0000
 				..Loop
 					...Write
-						LDA !Freeram_CustomL3Menu_PasswordStringTable,x	;>Tile number (digits)
+						LDA !Freeram_CustomL3Menu_DigitPasscodeUserInput,x	;>Tile number (digits)
 						STA [$00]					
 						LDA.b #%00111000				;>Properties (for all 0-9 digits)
 						STA [$03]					
@@ -322,117 +314,35 @@ ProcessLayer3Menu:
 						SEP #$20	;/
 						INX		;\Loop until all tiles written
 						CPX $06		;|
+						BEQ ..Loop	;|
 						BCC ..Loop	;/
-				PLX				;>Restore number of tiles
+				PLX				;>Restore number of bytes (stripe length)
 				STZ $03				;>RLE
 				REP #$20
-				LDA $06				;\Number of tiles
-				STA $04				;/
+				LDA !Freeram_CustomL3Menu_NumberOfCursorPositions	;\Number of tiles
+				AND #$00FF						;|
+				INC							;|
+				STA $04							;/
 				SEP #$20
 				JSL FinishStripe
 				SEP #$30
 				RTS
-		CheckPasscodeCorrect:
-			wdm
-			REP #$30
-			LDA !Freeram_CustomL3Menu_WhichCorrectPasscodeToUse		;\Get an address of the passcode
-			AND.w #$00FF							;|
-			ASL								;|
-			TAX								;|
-			BCS +								;|
-			LDA PasscodePointers,x						;|
-			BRA ++								;|
-			+								;|
-			LDA PasscodePointers+128,x					;/
-			++								;\$00-$02 now contains the 24-bit address of the starting byte of the passcodes.
-			STA $00								;|
-			SEP #$30							;|
-			LDA.b #PasscodePointers>>16					;|
-			STA $02								;/
-			LDA !Freeram_CustomL3Menu_UIState				;\Obtain password character length, based on how many possible cursor positions
-			TAX								;|
-			LDA Layer3MenuNumberOfCursorPos-1,x				;\I don't think LDX Table,x exist.
-			TAY								;/
-			TAX
-			;X and Y is now the number of characters -1 of the correct passcode ([$xx],x does not exist)
-			.Loop
-				LDA !Freeram_CustomL3Menu_PasswordStringTable,x		;\Check each character (digits) and if any character is does not match
-				CMP [$00],y						;|break loop and play "incorrect"
-				BNE .IncorrectPasscode					;|
-				..Next							;|
-					DEY
-					DEX						;|
-					BPL .Loop					;/
-			.CorrectPasscode
-				LDA #!CustomL3Menu_SoundEffectNumber_Correct		;\Otherwise if finishes the loop with all characters matching, then play "correct"
-				STA !CustomL3Menu_SoundEffectPort_Correct		;/
-				RTS
-			.IncorrectPasscode
-				LDA #!CustomL3Menu_SoundEffectNumber_Rejected
-				STA !CustomL3Menu_SoundEffectPort_Rejected
-				RTS
-	;--------------------------------------------------------------------------------
-	;List of passcode. Number of characters to check each is based on
-	;"Layer3MenuNumberOfCursorPos".
-	;--------------------------------------------------------------------------------
-		PasscodePointers:
-			;These are pointers, every 2 bytes here is a pointer to 
-			;a list of passwords. To add more, just add [dw Label]
-			;at the bottom
-			dw Passcode1		;>!Freeram_CustomL3Menu_WhichCorrectPasscodeToUse = $00 (X = $00)
-			dw Passcode2		;>!Freeram_CustomL3Menu_WhichCorrectPasscodeToUse = $01 (X = $02)
-			dw Passcode3		;>!Freeram_CustomL3Menu_WhichCorrectPasscodeToUse = $02 (X = $04)
-		;These are the passcodes. Each byte is each character in the same order
-		;appearing in the game. Only use values $00-$09 else the password will
-		;always reject.
-		;
-		;Make sure the number of bytes here matches with Layer3MenuNumberOfCursorPos
-		Passcode1:
-			db $01,$02,$03,$04
-		Passcode2:
-			db $02,$04,$06,$08
-		Passcode3:
-			db $09,$08,$07,$06
 	;--------------------------------------------------------------------------------
 	;Value adjust menu
 	;--------------------------------------------------------------------------------
 		ValueAdjustMenu:
 			RTL
-	;--------------------------------------------------------------------------------
-	;Each value here is each type from !Freeram_CustomL3Menu_UIState,
-	;excluding state $00 (so the first item is index 1). This defines the behavior
-	;of each value of !Freeram_CustomL3Menu_UIState.
-	; $00 = Menu selection mode (move cursor up and down, and press "confirm"
-	;       to select)
-	; $01 = number input
-	; $02 = Value adjust menu. Up/Down moves the cursor, Left/Right adjust the
-	;       value associated with it like a settings menu.
-	;--------------------------------------------------------------------------------
-		Layer3MenuBehavior:
-			db $00		;>Index 0
-			db $01		;>Index 1
-			db $02		;>Index 2
-	;--------------------------------------------------------------------------------
-	;Number of positions a cursor can be at, -1.
-	;Each number here is each value for !Freeram_CustomL3Menu_UIState excluding state $00.
-	;
-	;This is needed to prevent the cursor from going beyond the last
-	;option and makes it wrap to the first or last item should the cursor
-	;position be at -1 or NumberOfOOptions (the cursor is allowed to be at positions
-	;0 to NumberOfOOptions-1).
-	;--------------------------------------------------------------------------------
-		Layer3MenuNumberOfCursorPos:
-			db 4-1		;>!Freeram_CustomL3Menu_UIState = $01
-			db 4-1		;>!Freeram_CustomL3Menu_UIState = $02
-			db 4-1		;>!Freeram_CustomL3Menu_UIState = $03
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;Cursor move handler
-;Handles D-pad to move the cursor. Not suitable for 2D-like menu.
+;Handles D-pad to move the cursor. Designed only for "linear" menus that
+;moves in 2 directions that moves the cursor (not suitable for 2D-like menu.)
 ;
 ;Input:
 ; X:
-;  -$00 = vertical (up and down moves the cursor vertically)
-;  -$01 = horizontal (left and right moves the cursor horizontally)
+;  -$00 = vertical (up and down moves the cursor vertically). "Down"
+;   increases, "up" decreases.
+;  -$01 = horizontal (left and right moves the cursor horizontally). "Right"
+;   increases, "Left" decreases.
 ;Output:
 ; Carry: 0 = No change, 1 = change. Needed so we can only update what's change
 ;  on the stripe image.
@@ -452,21 +362,14 @@ DPadMoveCursorOnMenu:
 		CMP #$FF
 		BNE .NoWrapToBottom
 		.WrapToBottom
-			LDA !Freeram_CustomL3Menu_UIState
-			TAX
-			LDA Layer3MenuNumberOfCursorPos-1,x
+			LDA !Freeram_CustomL3Menu_NumberOfCursorPositions
 		.NoWrapToBottom
 		STA !Freeram_CustomL3Menu_CursorPos
 		BRA .SFX
 	.Increase
-		LDA !Freeram_CustomL3Menu_UIState	;\Get final position of cursor to compare with so that if beyond the last
-		TAX					;|item, loop back to item 0.
-		LDA Layer3MenuNumberOfCursorPos-1,x	;|
-		STA $01					;/
-		
 		LDA !Freeram_CustomL3Menu_CursorPos
 		INC
-		CMP $01
+		CMP !Freeram_CustomL3Menu_NumberOfCursorPositions
 		BEQ .NotExceed
 		BCC .NotExceed
 		

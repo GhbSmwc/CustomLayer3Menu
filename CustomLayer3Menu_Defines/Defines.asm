@@ -33,7 +33,7 @@ endif
 ;		STA !Freeram_CustomL3Menu_WritePhase
 ;		STA !Freeram_CustomL3Menu_CursorPos
 ;		LDX.b #(!LongestPasswordLengthInEntireGame)-1	;>!LongestPasswordLengthInEntireGame is the highest number of characters of your entire game
-;		STA !Freeram_CustomL3Menu_PasswordStringTable
+;		STA !Freeram_CustomL3Menu_DigitPasscodeUserInput
 ;		BPL -
 ;		STA !Freeram_CustomL3Menu_ConfirmState
 ;		RTL
@@ -54,25 +54,45 @@ endif
   ;^[1 byte] Contains the position of the cursor. Note, for 2D movement, left and right adjusts this value -1/+1
   ; while vertical movement will -NumbOfCols/+NumbOfCols where NumbOfCols is the number of columns, or how many
   ; selections per row.
+  
+ !Freeram_CustomL3Menu_NumberOfCursorPositions = $61
+  ;^[1 byte] The number of valid cursor positions or digits in the passcode, -1. Used to prevent the cursor from going past the last
+  ; item (or last digit in passcode mode) in the menu.
 
- !Freeram_CustomL3Menu_PasswordStringTable = $0F5E|!addr
+ !Freeram_CustomL3Menu_DigitPasscodeUserInput = $06F9|!addr
   ;^[Max_Number_of_char_in_game] bytes. Contains the string of characters entered by the user.
   ; This is used by the number password UI. Make sure this is all initialized to 0.
 
- !Freeram_CustomL3Menu_ConfirmState = $0F71|!addr
-  ;[1 byte], a flag used for "signaling" that the user has confirmed:
-  ; -#$00 = Has not (menu waiting)
-  ; -#$01 = Yes.
-  ; -#$00 = Canceled.
-  ;Note: every time you have codes that read this, each time that is done, make sure you clear it
-  ;so that if you have multiple areas also using the confirm state would not "auto-confirm" based
-  ;on the last confirmation before it.
+ !Freeram_CustomL3Menu_DigitCorrectPasscode = $0F5E|!addr
+  ;^[Max_Number_of_char_in_game] bytes. Contains the string of characters that is the correct passcode
+  ; that a code compares it to determine if correct or not.
 
- !Freeram_CustomL3Menu_WhichCorrectPasscodeToUse = $0F70|!addr
-  ;^[1 byte], A number representing which correct passcode in the table to use when checking
-  ; the user's inputted number. See "PasscodePointers" in "Uberasm_tool_files/library/CustomLayer3Menu.asm".
+ !Freeram_CustomL3Menu_PasscodeCallBackSubroutine = $0DC3|!addr
+  ;^[4 bytes], this 4-byte of contiguous data contains a JML instruction to execute a code supplied from elsewhere, such as a
+  ; a custom block door. The bytes in this RAM should be:
+  ;  !Freeram_CustomL3Menu_PasscodeCallBackSubroutine+0: 5C ;>This MUST be $5C, which is the JML instruction byte.
+  ;  !Freeram_CustomL3Menu_PasscodeCallBackSubroutine+1: aa ;\These are made-up example address. If this is not
+  ;  !Freeram_CustomL3Menu_PasscodeCallBackSubroutine+2: bb ;|set up correctly, your game will crash or glitch out.
+  ;  !Freeram_CustomL3Menu_PasscodeCallBackSubroutine+3: cc ;/
+  ;
+  ; This is being called via a JSL in the UI code in "Uberasm_tool_files/library/CustomLayer3Menu.asm" ("JSL !Freeram_CustomL3Menu_PasscodeCallBackSubroutine")
+  ; The input data given is $00 (1 byte) which determines:
+  ;  #$00 = Not confirmed (menu waiting for user to confirm) or when the user canceled. Therefore "not entered"
+  ;  #$01 = Confirmed
+  ; where the $ccbbaa is an address (in little endian) to jump to the supplied code. For example, in a custom block code you
+  ; would do this to setup an address that executes during process of the UI system:
+  ;	REP #$20
+  ;	LDA.w #SuppliedCode					;\[aa bb] -> $xxbbaa (remember, little endian)
+  ;	STA !Freeram_CustomL3Menu_PasscodeCallBackSubroutine+1	;/
+  ;	SEP #$20
+  ;	LDA.b #SuppliedCode>>16					;\[cc] -> $ccbbaa
+  ;	STA !Freeram_CustomL3Menu_PasscodeCallBackSubroutine+3	;/
+  ;	RTL
+  ;	SuppliedCode:
+  ;	;This code here will not be executed from the custom block, rather from CustomLayer3Menu.asm.
+  ;	;RTL	;>This MUST end with an RTL because of the aforementioned "JSL !Freeram_CustomL3Menu_PasscodeCallBackSubroutine"
 
- !Freeram_ControlBackup = $0DC3|!addr
+ !Freeram_ControlBackup = $0F3A|!addr
   ;^[4 bytes] a copy of $15-$18 (in the same order). This is so that when in UI mode,
   ; the player character (Mario/Luigi) cannot move and inputs can only affect what is
   ; on the UI.
@@ -81,7 +101,7 @@ endif
   ; !Freeram_ControlBackup+2: $17 (%axlr---- held down)
   ; !Freeram_ControlBackup+3: $18 (%axlr---- first frame only)
 
- !Freeram_BlockedStatBkp = $79
+ !Freeram_BlockedStatBkp = $62
   ;^[1 byte] A backup of $77 to determine if Mario is on
   ; the ground.
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
