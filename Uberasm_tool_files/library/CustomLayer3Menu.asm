@@ -18,6 +18,7 @@ ProcessLayer3Menu:
 	LDX #$0B
 	STX $71
 	STX $9D
+	STX $13FB|!addr		;>Also make player ignore gravity.
 	
 	.SkipFreeze
 	
@@ -30,20 +31,21 @@ ProcessLayer3Menu:
 		JMP.w (MenuStates-2+128,x)
 	
 	MenuStates:
-		dw ExitMenuEnablePlayerMovement		;!Freeram_CustomL3Menu_UIState = $01 (X = $02)
-		dw MenuSelection			;!Freeram_CustomL3Menu_UIState = $02 (X = $04)
-		dw NumberInput				;!Freeram_CustomL3Menu_UIState = $03 (X = $06)
-		dw ValueAdjustMenu			;!Freeram_CustomL3Menu_UIState = $04 (X = $08)
+		dw ExitMenuEnablePlayerMovement		;>!Freeram_CustomL3Menu_UIState = $01 (X = $02)
+		dw MenuSelection			;>!Freeram_CustomL3Menu_UIState = $02 (X = $04)
+		dw NumberInput				;>!Freeram_CustomL3Menu_UIState = $03 (X = $06)
+		dw ValueAdjustMenu			;>!Freeram_CustomL3Menu_UIState = $04 (X = $08)
 	;--------------------------------------------------------------------------------
 	;These are codes that handle the behavior of each menu types
 	;$00 contains the index of what menu type of the current menu.
 	;--------------------------------------------------------------------------------
 	;--------------------------------------------------------------------------------
-	;Close menu and enable player movement
+	;Close menu and enable player movement (shouldn't execute every frame)
 	;--------------------------------------------------------------------------------
 	ExitMenuEnablePlayerMovement:
 		LDA #$00				;\Close menu so that the following code does not execute every frame
 		STA !Freeram_CustomL3Menu_UIState	;/
+		STZ $13FB|!addr
 		STA $9D					;\Enable player movement
 		STA $71					;/
 		STA !Freeram_CustomL3Menu_WritePhase
@@ -122,12 +124,10 @@ ProcessLayer3Menu:
 					INC					;|
 					STA !Freeram_CustomL3Menu_WritePhase	;/
 					CMP #$05				;\If cleared both the digits and cursor,
-					;Uncomment this if you want every number input in your game to close out and
-					;resume gameplay when canceling or confirming.
-					;BCC +					;/then reset the entire menu
-					;LDA #$01				;\Reset entire menu (except the passcode string)
-					;STA !Freeram_CustomL3Menu_UIState	;/
-					;+
+					BCC +					;/then reset the entire menu
+					LDA #$01				;\Reset entire menu (except the passcode string)
+					STA !Freeram_CustomL3Menu_UIState	;/
+					+
 					JMP .Done
 					...YPositionToClearDigitsThenCursor
 						db !CustomL3Menu_NumberInput_YPos

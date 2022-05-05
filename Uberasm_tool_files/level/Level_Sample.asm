@@ -52,6 +52,8 @@ init:
 					LDA #!CustomL3Menu_SoundEffectNumber_Rejected
 					STA !CustomL3Menu_SoundEffectPort_Rejected
 			...Done
+				LDA #$03				;\Initiate closing the passcode mode and clear the stripe image tiles.
+				STA !Freeram_CustomL3Menu_WritePhase	;/
 			RTL	;>This MUST end with an RTL because of the aforementioned "JSL !Freeram_CustomL3Menu_PasscodeCallBackSubroutine"
 
 	RTL
