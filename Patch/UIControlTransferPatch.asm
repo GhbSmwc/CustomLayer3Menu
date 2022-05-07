@@ -35,9 +35,9 @@ incsrc "../CustomLayer3Menu_Defines/Defines.asm"
 	autoclean JSL FixHDMA		;/$7E0071 to #$0B ($00cde8 constantly sets $9D to $00 when $71 is $00.).
 	NOP #4
 	
-	org $00EAA9			;\This is why blocks always assume $77, $13E1 and $13EE
-	autoclean JSL BlockedFix	;/are stored as zero (this runs every frame).
-	nop #1
+	;org $00EAA9			;\This is why blocks always assume $77, $13E1 and $13EE
+	;autoclean JSL BlockedFix	;/are stored as zero (this runs every frame).
+	;nop #1
 	
 	freecode
 	
@@ -88,21 +88,21 @@ incsrc "../CustomLayer3Menu_Defines/Defines.asm"
 		.NormalLevel
 			RTL
 	
-	BlockedFix:
-	;	LDA $13E1+!addr		;\In case you also wanted blocks to detect slope, remove
-	;	STA $xxxxxx		;/the semicolons (";") before it and add a freeram in place of xxxxxx
-		STZ $13E1+!addr		;>Restore code (clears slope type)
-	
-		LDA $77				;\backup/save block status for use for blocks...
-		STA !Freeram_BlockedStatBkp	;/
-		STZ $77				;>...before its cleared.
-	
-		;^This (or both) freeram will get cleared when $77 and/or $13E1
-		; gets cleared on the next frame due to a whole big loop SMW runs.
-		; when mario isn't touching a solid object.
-	
-		;So after executing $00EAA9, you should use the freeram that has
-		;the blocked and/or slope status saved in them. If before $00EAA9,
-		;then use the original ($77 and/or $13E1). Do not write a value on
-		;this freeram, it will do nothing, write on those default ram address.
-		RTL
+;	BlockedFix:
+;	;	LDA $13E1+!addr		;\In case you also wanted blocks to detect slope, remove
+;	;	STA $xxxxxx		;/the semicolons (";") before it and add a freeram in place of xxxxxx
+;		STZ $13E1+!addr		;>Restore code (clears slope type)
+;	
+;		LDA $77				;\backup/save block status for use for blocks...
+;		STA !Freeram_BlockedStatBkp	;/
+;		STZ $77				;>...before its cleared.
+;	
+;		;^This (or both) freeram will get cleared when $77 and/or $13E1
+;		; gets cleared on the next frame due to a whole big loop SMW runs.
+;		; when mario isn't touching a solid object.
+;	
+;		;So after executing $00EAA9, you should use the freeram that has
+;		;the blocked and/or slope status saved in them. If before $00EAA9,
+;		;then use the original ($77 and/or $13E1). Do not write a value on
+;		;this freeram, it will do nothing, write on those default ram address.
+;		RTL

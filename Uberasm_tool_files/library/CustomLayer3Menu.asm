@@ -4,6 +4,11 @@
 ;screen), Tiles are written only when an "update" occurs, not every frame (such as
 ;moving the cursor, changing the settings in a options menu).
 
+;Subroutines included here that can be used by any menu/UI types:
+;-DPadMoveCursorOnMenu
+;-SetupStripeHeaderAndIndex
+;-FinishStripe
+
 	incsrc "../CustomLayer3Menu_Defines/Defines.asm"
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;Process layer 3 menu
@@ -13,14 +18,20 @@ ProcessLayer3Menu:
 	BNE +
 	RTL
 	+
+	LDA $71			;\Don't cancel Mario's teleportation
+	CMP #$06		;|
+	BEQ +			;/
 	;CMP #$XX		;\If you want some menus to not freeze time,
 	;BEQ .SkipFreeze	;/uncomment the code here.
-	LDX #$0B
-	STX $71
-	STX $9D
-	STX $13FB|!addr		;>Also make player ignore gravity.
+	LDA #$0B
+	STA $71
+	STA $9D
+	STA $13FB|!addr		;>Also make player ignore gravity.
+	BRA +
 	
+	+
 	.SkipFreeze
+	LDA !Freeram_CustomL3Menu_UIState
 	
 	.MenuTypeHandler
 		ASL			;\Values >= 128 would have bit 7 being set, which
@@ -45,10 +56,16 @@ ProcessLayer3Menu:
 	ExitMenuEnablePlayerMovement:
 		LDA #$00				;\Close menu so that the following code does not execute every frame
 		STA !Freeram_CustomL3Menu_UIState	;/
-		STZ $13FB|!addr
-		STA $9D					;\Enable player movement
-		STA $71					;/
-		STA !Freeram_CustomL3Menu_WritePhase
+		LDA $71					;\Allow the player to teleport when frozen
+		CMP #$06				;|
+		BEQ .Teleporting			;|
+		STZ $71					;/
+		
+		.Teleporting
+		LDA #$00
+		STA $13FB|!addr				;\Enable player movement
+		STA $9D					;|
+		STA !Freeram_CustomL3Menu_WritePhase	;/
 		RTL
 	;--------------------------------------------------------------------------------
 	;This one is a standard menu
