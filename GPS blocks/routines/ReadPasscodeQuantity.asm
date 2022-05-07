@@ -6,6 +6,9 @@ incsrc "../CustomLayer3Menu_Defines/Defines.asm"
 ;up to 4 digits because 16-bit unsigned max number is 65,535 and the user can enter a 5-digit
 ;number 99,999 which is greater than 65,535.
 ;
+;This is very useful for making it easy to read the number the user has entered rather than
+;digit by digit, as well as being a lot smaller than a digit per byte.
+;
 ;Input:
 ;-!Freeram_CustomL3Menu_NumberOfCursorPositions (1 byte): Needed to find the last digit
 ; and all the digits before it to correctly calculate.
@@ -28,27 +31,27 @@ incsrc "../CustomLayer3Menu_Defines/Defines.asm"
 	LDA !Freeram_CustomL3Menu_DigitPasscodeUserInput,x		;|
 	STA $00								;|
 	STZ $01								;/
-	DEX								;\X now starts at the tens place
-	TAX								;/
+	DEX								;>X now starts at the tens place
 	STZ $03
-	?.Loop
+	?Loop
 		LDA !Freeram_CustomL3Menu_DigitPasscodeUserInput,x	;>A = the digit value (only 0-9)
-		CLC
-		ADC $03
-		TAY
+		ASL							;>16-bit is 2 bytes.
+		CLC							;\This basically gets a digit to "multiply by 10^n"
+		ADC $03							;|
+		TAY							;/
 		REP #$20
 		LDA ?DigitTables,y
-		CLC
-		ADC $00
-		STA $00
+		CLC							;\Add (basically 1234 = 1000 + 200 + 30 + 4)
+		ADC $00							;|
+		STA $00							;/
 		SEP #$20
-		?..Next
+		?.Next
 			LDA $03		;\Next place value digit
 			CLC		;|
-			ADC.w 20	;|
+			ADC.b #20	;|
 			STA $03		;/
 			DEX		;\Next digit of !Freeram_CustomL3Menu_DigitPasscodeUserInput
-			BPL ?.Loop	;/
+			BPL ?Loop	;/
 	PLB								;>Restore bank
 	PLY								;\Restore XY
 	PLX								;/

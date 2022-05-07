@@ -16,20 +16,24 @@
 ProcessLayer3Menu:
 	LDA !Freeram_CustomL3Menu_UIState
 	BNE +
+	.Done
 	RTL
 	+
-	LDA $71			;\Don't cancel Mario's teleportation
-	CMP #$06		;|
-	BEQ +			;/
+	LDA $71			;\Don't cancel Mario's teleportation or other animation
+	CMP #$0B
+	BEQ .Freeze
+	CMP #$00
+	BNE .Done	;/
+	
+	.Freeze
 	;CMP #$XX		;\If you want some menus to not freeze time,
 	;BEQ .SkipFreeze	;/uncomment the code here.
 	LDA #$0B
 	STA $71
 	STA $9D
 	STA $13FB|!addr		;>Also make player ignore gravity.
-	BRA +
 	
-	+
+	++
 	.SkipFreeze
 	LDA !Freeram_CustomL3Menu_UIState
 	
@@ -56,14 +60,18 @@ ProcessLayer3Menu:
 	ExitMenuEnablePlayerMovement:
 		LDA #$00				;\Close menu so that the following code does not execute every frame
 		STA !Freeram_CustomL3Menu_UIState	;/
-		LDA $71					;\Allow the player to teleport when frozen
-		CMP #$06				;|
-		BEQ .Teleporting			;|
+		LDA $71					;\Allow the player to teleport when frozen. Also don't interfere with other animations.
+		CMP #$0B
+		BEQ .Clear
+		CMP #$00
+		BNE .Skip				;|
+		
+		.Clear
 		STZ $71					;/
 		
-		.Teleporting
+		.Skip
 		LDA #$00
-		STA $13FB|!addr				;\Enable player movement
+		STA $13FB|!addr				;\Enable player movement and also teleport since $13FB != 0 would freeze teleport.
 		STA $9D					;|
 		STA !Freeram_CustomL3Menu_WritePhase	;/
 		RTL
@@ -81,7 +89,6 @@ ProcessLayer3Menu:
 			PHB					;>Preserve bank
 			PHK					;\Change bank so that $xxxx,y works correctly
 			PLB					;/
-			WDM
 			;NMI overflow prevention. Works like this:
 			;There are 3 phases of how this stripe writer writes
 			;Phase 1 (!Freeram_CustomL3Menu_WritePhase = #$00): Only write the digits, set the phase to #$01 and terminate the code.
