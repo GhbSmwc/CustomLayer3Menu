@@ -12,3 +12,4 @@ UI	!Freeram_CustomL3Menu_DigitCorrectPasscode	8	-	-
 UI	!Freeram_CustomL3Menu_PasscodeCallBackSubroutine	4	-	-
 UI	!Freeram_ControlBackup	4	-	-
 UI	!Freeram_BlockedStatBkp	1	-	-
+UI	!Freeram_32bitDecToHexOutput	4	-	-

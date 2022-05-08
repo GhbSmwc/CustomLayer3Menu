@@ -27,7 +27,7 @@ endif
 ;To avoid potential problems, I suggest using this code for uberasm tool code:
 ;	
 ;	incsrc "../CustomLayer3Menu_Defines/Defines.asm"
-;	init:
+;	init: ;>Level init
 ;		LDA #$00
 ;		STA !Freeram_CustomL3Menu_UIState
 ;		STA !Freeram_CustomL3Menu_WritePhase
@@ -101,9 +101,9 @@ endif
   ; !Freeram_ControlBackup+2: $17 (%axlr---- held down)
   ; !Freeram_ControlBackup+3: $18 (%axlr---- first frame only)
 
- !Freeram_BlockedStatBkp = $62
-  ;^[1 byte] A backup of $77 to determine if Mario is on
-  ; the ground.
+ !Scratchram_32bitDecToHexOutput = $0F42|!addr
+  ;[4 bytes] Only used when "ReadPasscodeQuantity32Bit" is being used. This is the output of a 32-bit unsigned integer (little
+  ;endian) when converting numbers from !Freeram_CustomL3Menu_DigitPasscodeUserInput to a raw binary number.
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;Settings
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

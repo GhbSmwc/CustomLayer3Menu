@@ -1,13 +1,24 @@
 incsrc "../CustomLayer3Menu_Defines/Defines.asm"
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;This routine takes the sequence of digits from !Freeram_CustomL3Menu_DigitPasscodeUserInput
-;and converts it into a raw binary number (essentially the opposite of hex to dec routines
-;which those converts a binary number into a sequence of decimal digits). This only supports
-;up to 4 digits because 16-bit unsigned max number is 65,535 and the user can enter a 5-digit
-;number 99,999 which is greater than 65,535.
+;This routine takes the sequence of digits (essentially BCD unpacked format) from
+;!Freeram_CustomL3Menu_DigitPasscodeUserInput and converts it into a raw binary number
+;(essentially the opposite of hex to dec routines which those converts a binary number into a
+;sequence of decimal digits). This only supports up to 4 digits because 16-bit unsigned max
+;number is 65,535 and the user can enter a 5-digit number 99,999 which is greater than 65,535.
+;
+;How it works: It calculates like this (D0, D1, D2, D3 represents a digit where numbers 0-3
+;represents ones, tens, hundreds, and then thousands in that order):
+; D0 + (D1 * 10) + (D2 * 100) + (D3 * 1000)
+;
+; Example: 1234 -> "1", "2", "3", "4" -> $04D2
+;  4 + (3 * 10) + (2 * 100) + (1 * 1000)
+;  = 4 + 30 + 200 + 1000
+;  = 1234 = $04D2
+;This is positional notation to get a value based on its position.
 ;
 ;This is very useful for making it easy to read the number the user has entered rather than
-;digit by digit, as well as being a lot smaller than a digit per byte.
+;digit by digit, having the correct passcode take up smaller space (9999 would take up 4 bytes
+;[09 09 09 09] vs 2 bytes [0F 27 ($270F)]).
 ;
 ;Input:
 ;-!Freeram_CustomL3Menu_NumberOfCursorPositions (1 byte): Needed to find the last digit
