@@ -166,3 +166,7 @@ endif
   ;Number input
    !CustomL3Menu_NumberInput_XPos = 3 ;>31 ($1F) = right edge of screen
    !CustomL3Menu_NumberInput_YPos = 25 ;>27 ($1B) = bottom of screen
+
+ ;Other
+  !CustomL3Menu_MaxNumberOfDigitsInEntireGame = 8
+   ;^The most number of digits passcode in your entire game.

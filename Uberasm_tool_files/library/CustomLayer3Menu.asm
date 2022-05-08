@@ -19,17 +19,23 @@ ProcessLayer3Menu:
 	.Done
 	RTL
 	+
+	
+	;CMP #$XX		;\If you want some UI states to not freeze time,
+	;BEQ .SkipFreeze	;/uncomment the code here.
 	LDA $71			;\Don't cancel Mario's teleportation or other animation
 	CMP #$0B
 	BEQ .Freeze
+	CMP #$06
+	BEQ .Teleporting
 	CMP #$00
 	BNE .Done	;/
 	
 	.Freeze
-	;CMP #$XX		;\If you want some menus to not freeze time,
-	;BEQ .SkipFreeze	;/uncomment the code here.
 	LDA #$0B
 	STA $71
+	
+	.Teleporting
+	LDA #$01
 	STA $9D
 	STA $13FB|!addr		;>Also make player ignore gravity.
 	
