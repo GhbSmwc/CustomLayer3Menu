@@ -2,15 +2,16 @@ incsrc "../CustomLayer3Menu_Defines/Defines.asm"
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;This is the same as ReadPasscodeQuantity but handles up to 9 digits using a 32-bit number.
 ;9 instead of 10 because 32-bit unsigned integer max is 4,294,967,295 and the user can enter
-;9,999,999,999 which is greater than the max number.
+;9,999,999,999 which is greater than the max number. This is the inverse of my
+;"Convert32bitIntegerToDecDigits" found in my status bar tutorial.
 ;
 ;This one actually uses multiplication routine due to its large size.
 ;Good for "compressed passcode" if you plan on having multiple randomized correct passcodes in
 ;your game and you do not want the correct passcodes to take up an exorbitant amount of space.
 ;
 ;Note: a 32-bit range RNG subroutine is required. At the time of writing this, nobody has made
-;that. However it is extremely unlikely you'll need that since most games never had a passcode
-;with that many digits and it is pretty hard for the player to know what position a digit is.
+;that. However, you can just simply generate the BCD format, then use this subroutine to compress
+;the two words, then store it in SRAM.
 ;
 ;Input:
 ;-!Freeram_CustomL3Menu_NumberOfCursorPositions (1 byte): Needed to find the last digit
@@ -36,7 +37,7 @@ incsrc "../CustomLayer3Menu_Defines/Defines.asm"
 	LDA !Freeram_CustomL3Menu_NumberOfCursorPositions	;\Rightmost digit
 	TAX							;/
 	LDA !Freeram_CustomL3Menu_DigitPasscodeUserInput,x	;>X is on the 1s place.
-	STA !Scratchram_32bitDecToHexOutput			;\!Scratchram_32bitDecToHexOutput starts off containing a value of 0-9
+	STA !Scratchram_32bitDecToHexOutput			;\!Scratchram_32bitDecToHexOutput starts off containing a value of 0-9 in the 1s place
 	LDA #$00						;|
 	STA !Scratchram_32bitDecToHexOutput+1			;|
 	STA !Scratchram_32bitDecToHexOutput+2			;|

@@ -31,13 +31,16 @@ incsrc "../CustomLayer3Menu_Defines/Defines.asm"
 	autoclean JSL MoveControllerToUI	;|
 	nop					;/
 
-	org $00C5CE			;\fix hdma issues (like message box) when setting
-	autoclean JSL FixHDMA		;/$7E0071 to #$0B ($00cde8 constantly sets $9D to $00 when $71 is $00.).
+	org $00C5CE				;\fix hdma issues (like message box) when setting
+	autoclean JSL FixHDMA			;/$7E0071 to #$0B ($00cde8 constantly sets $9D to $00 when $71 is $00.).
 	NOP #4
+	
+	org $00EED4
+	autoclean JML DontMoveMario1PixelUp	;This fixes an issue where centering the player vertically within a block can sometimes make mario 1 pixel higher
 	
 	freecode
 	
-	MoveControllerToUI:
+	MoveControllerToUI:	;>JSL from $0086C1
 		.Restore
 			LDA $0DA8|!addr,x		;\Restore controls.
 			STA $18				;/
@@ -70,7 +73,7 @@ incsrc "../CustomLayer3Menu_Defines/Defines.asm"
 		.Done
 			RTL
 	
-	FixHDMA:
+	FixHDMA:	;>JSL from $00C5CE
 		LDA $0D9B|!addr
 		CMP #$C1
 		BNE .NormalLevel
@@ -83,3 +86,15 @@ incsrc "../CustomLayer3Menu_Defines/Defines.asm"
 
 		.NormalLevel
 			RTL
+			
+	DontMoveMario1PixelUp:		;>JSL from $00EED4
+		LDA $13FB|!addr
+		;ORA $xxxx
+		BNE .NoMove
+		.Restore
+			LDA $96
+			SEC
+			SBC $91
+			JML $80EED9
+		.NoMove
+			JML $80EEE1

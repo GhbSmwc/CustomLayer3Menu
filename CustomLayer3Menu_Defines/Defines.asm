@@ -60,11 +60,11 @@ endif
   ; item (or last digit in passcode mode) in the menu.
 
  !Freeram_CustomL3Menu_DigitPasscodeUserInput = $06F9|!addr
-  ;^[Max_Number_of_char_in_game] bytes. Contains the string of characters entered by the user.
+  ;^[!CustomL3Menu_MaxNumberOfDigitsInEntireGame] bytes. Contains the string of characters entered by the user.
   ; This is used by the number password UI. Make sure this is all initialized to 0.
 
  !Freeram_CustomL3Menu_DigitCorrectPasscode = $0F5E|!addr
-  ;^[Max_Number_of_char_in_game] bytes. Contains the string of characters that is the correct passcode
+  ;^[!CustomL3Menu_MaxNumberOfDigitsInEntireGame] bytes. Contains the string of characters that is the correct passcode
   ; that a code compares it to determine if correct or not.
 
  !Freeram_CustomL3Menu_PasscodeCallBackSubroutine = $0DC3|!addr

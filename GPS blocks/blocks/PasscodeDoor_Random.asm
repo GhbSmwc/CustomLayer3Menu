@@ -21,6 +21,7 @@ BodyInside:
 	BEQ Return						;/
 	LDA $8F							;\Backup of $72. If Mario is not on ground, return
 	BNE Return						;/
+	%DoorCenterPlayer()
 	LDA #$03						;\Activate the menu
 	STA !Freeram_CustomL3Menu_UIState			;|
 	LDA #$00						;|

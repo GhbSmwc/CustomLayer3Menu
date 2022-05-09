@@ -3,12 +3,32 @@
 ;If the player enters the correct passcode, it plays the "correct" sound effect, closes the menu, and teleports the player to whatever screen exit set by LM.
 ;If the player enters the incorrect passcode, it plays the "incorrect" sound effect and closes the menu.
 
-;The correct passcode is under the label "PasscodeCorrect". Each number should be a value 0-9 and it corresponds to what digit shown to the player
-;in the same order (leftmost digit is the first number, second is second, and so on. Be careful not to have too many values more than what you expect
-;as it could end up overwriting/overreading bytes beyond !Freeram_CustomL3Menu_DigitPasscodeUserInput+<Expected_max_number_of_bytes>-1 and
+;If you have !BCD_or_Binary set to 0, The correct passcode is under the label "PasscodeCorrect". Each number should be a value 0-9 and it corresponds to what
+;digit shown to the player in the same order (leftmost digit is the first number, second is second, and so on. Be careful not to have too many values more
+;than !CustomL3Menu_MaxNumberOfDigitsInEntireGame as it could end up overwriting/overreading bytes beyond
+;!Freeram_CustomL3Menu_DigitPasscodeUserInput+<Expected_max_number_of_bytes>-1 and
 ;!Freeram_CustomL3Menu_DigitCorrectPasscode+<Expected_max_number_of_bytes>-1 (so if you for example expect no more than 8 digits, and you have more than 8,
-;data will be written and read past !Freeram_CustomL3Menu_DigitPasscodeUserInput+7 and Freeram_CustomL3Menu_DigitCorrectPasscode+7 and can cause issues).
+;data will be written and read past the last bytes of !Freeram_CustomL3Menu_DigitPasscodeUserInput and Freeram_CustomL3Menu_DigitCorrectPasscode and can
+;cause issues).
 
+
+!BCD_or_Binary = 1
+ ;^0 = BCD: binary coded decimal (unpacked). The correct passcode is in each decimal digit form.
+ ;     This has virtually no limits (well up to 32 digits because that's the width of the screen).
+ ;^1 = binary: Stores the entire value as raw digits and also taking up less space (example:
+ ; a passcode of "1234" would store $04D2 (2 bytes) instead of [01 02 03 04] (4 bytes)). However
+ ; up to 9 digits are allowed.
+ 
+ ;If you have !BCD_or_Binary set to 1:
+  !CorrectPasscodeBinary = 0123
+  !NumberOfDigits = 4
+  
+  
+;Don't touch
+ !CorrectPasscodeSize = 0
+ if !CorrectPasscodeBinary > 65535
+  !CorrectPasscodeSize = 1
+ endif
 incsrc "../CustomLayer3Menu_Defines/Defines.asm"
 
 db $42 ; or db $37
@@ -26,12 +46,18 @@ BodyInside:
 	BEQ Return						;/
 	LDA $8F							;\Backup of $72. If Mario is not on ground, return
 	BNE Return						;/
+	%DoorCenterPlayer()
 	LDA #$03						;\Activate the menu
 	STA !Freeram_CustomL3Menu_UIState			;|
 	LDA #$00						;|
 	STA !Freeram_CustomL3Menu_WritePhase			;/
 	STA !Freeram_CustomL3Menu_CursorPos			;>Default the cursor position
-	LDA.b #(PasscodeCorrectEnd-PasscodeCorrect)-1		;\Number of digits or cursor positions
+	
+	if !BCD_or_Binary == 0
+		LDA.b #(PasscodeCorrectEnd-PasscodeCorrect)-1		;\Number of digits or cursor positions
+	else
+		LDA.b #!NumberOfDigits-1
+	endif
 	STA !Freeram_CustomL3Menu_NumberOfCursorPositions	;/
 	REP #$20						;\Setup code to use when the user enters or exit the passcode.
 	LDA.w #SuppliedCode					;|
@@ -40,13 +66,18 @@ BodyInside:
 	LDA.b #SuppliedCode>>16					;|
 	STA !Freeram_CustomL3Menu_PasscodeCallBackSubroutine+3	;/
 	
-	
-	LDX.b #(PasscodeCorrectEnd-PasscodeCorrect)-1		;\Default the original passcode to all zeroes and setup the correct passcode
+	if !BCD_or_Binary == 0
+		LDX.b #(PasscodeCorrectEnd-PasscodeCorrect)-1		;\Default the original passcode to all zeroes and setup the correct passcode
+	else
+		LDX.b #!NumberOfDigits-1
+	endif
 	-							;|
 	LDA #$00						;|
 	STA !Freeram_CustomL3Menu_DigitPasscodeUserInput,x	;|
-	LDA PasscodeCorrect,x					;|
-	STA !Freeram_CustomL3Menu_DigitCorrectPasscode,x	;|
+	if !BCD_or_Binary == 0
+		LDA PasscodeCorrect,x					;|
+		STA !Freeram_CustomL3Menu_DigitCorrectPasscode,x	;|
+	endif
 	DEX							;|
 	BPL -							;/
 	RTL
@@ -69,32 +100,82 @@ SuppliedCode:
 	BNE .Done
 	.PasscodeCheck
 		;Check if passcode entered by player is correct
-		LDX.b #(PasscodeCorrectEnd-PasscodeCorrect)-1
-		..PasscodeCheckLoop
-			LDA !Freeram_CustomL3Menu_DigitCorrectPasscode,x
-			CMP !Freeram_CustomL3Menu_DigitPasscodeUserInput,x
-			BNE ..Incorrect
-			...Next
-				DEX
-				BPL ..PasscodeCheckLoop
-		..Correct
-			LDA #!CustomL3Menu_SoundEffectNumber_Correct
-			STA !CustomL3Menu_SoundEffectPort_Correct
-			LDA #$06				;\Teleport player.
-			STA $71					;|
-			STZ $89					;|
-			STZ $88					;/
-			BRA .Done
-		..Incorrect
-			LDA #!CustomL3Menu_SoundEffectNumber_Rejected
-			STA !CustomL3Menu_SoundEffectPort_Rejected
+		if !BCD_or_Binary == 0
+			LDX.b #(PasscodeCorrectEnd-PasscodeCorrect)-1
+			..PasscodeCheckLoop
+				LDA !Freeram_CustomL3Menu_DigitCorrectPasscode,x
+				CMP !Freeram_CustomL3Menu_DigitPasscodeUserInput,x
+				BNE ..Incorrect
+				...Next
+					DEX
+					BPL ..PasscodeCheckLoop
+			..Correct
+				LDA #!CustomL3Menu_SoundEffectNumber_Correct
+				STA !CustomL3Menu_SoundEffectPort_Correct
+				LDA #$06				;\Teleport player.
+				STA $71					;|
+				STZ $89					;|
+				STZ $88					;/
+				BRA .Done
+			..Incorrect
+				LDA #!CustomL3Menu_SoundEffectNumber_Rejected
+				STA !CustomL3Menu_SoundEffectPort_Rejected
+		else
+			if !CorrectPasscodeSize == 0
+				LDA.b #!NumberOfDigits-1
+				STA !Freeram_CustomL3Menu_NumberOfCursorPositions
+				%ReadPasscodeQuantity()
+				REP #$20
+				LDA $00
+				CMP.w #!CorrectPasscodeBinary
+				SEP #$20
+				BNE ..Incorrect
+				
+				..Correct
+					LDA #!CustomL3Menu_SoundEffectNumber_Correct
+					STA !CustomL3Menu_SoundEffectPort_Correct
+					LDA #$06				;\Teleport player.
+					STA $71					;|
+					STZ $89					;|
+					STZ $88					;/
+					BRA .Done
+				..Incorrect
+					LDA #!CustomL3Menu_SoundEffectNumber_Rejected
+					STA !CustomL3Menu_SoundEffectPort_Rejected
+			else
+				LDA.b #!NumberOfDigits-1
+				STA !Freeram_CustomL3Menu_NumberOfCursorPositions
+				%ReadPasscodeQuantity32Bit()
+				REP #$20
+				LDA !Scratchram_32bitDecToHexOutput
+				CMP.w #!CorrectPasscodeBinary
+				BNE ..Incorrect
+				LDA !Scratchram_32bitDecToHexOutput+2
+				CMP.w #!CorrectPasscodeBinary>>16
+				BNE ..Incorrect
+				..Correct
+					SEP #$20
+					LDA #!CustomL3Menu_SoundEffectNumber_Correct
+					STA !CustomL3Menu_SoundEffectPort_Correct
+					LDA #$06				;\Teleport player.
+					STA $71					;|
+					STZ $89					;|
+					STZ $88					;/
+					BRA .Done
+				..Incorrect
+					SEP #$20
+					LDA #!CustomL3Menu_SoundEffectNumber_Rejected
+					STA !CustomL3Menu_SoundEffectPort_Rejected
+			endif
+		endif
 	.Done
 		LDA #$03				;\Initiate closing the passcode mode and clear the stripe image tiles.
 		STA !Freeram_CustomL3Menu_WritePhase	;/
 		RTL
 
-	PasscodeCorrect:
-		db $00,$01,$02,$03 ;>Must be in between the two labels to get the number of digits correct.
+	if !BCD_or_Binary == 0
+		PasscodeCorrect:
+			db $00,$01,$02,$03 ;>Must be in between the two labels to get the number of digits correct.
 		PasscodeCorrectEnd:
-
+	endif
 print "Passcode door"
