@@ -26,7 +26,7 @@
  ; up to 9 digits are allowed.
  
  ;These apply if you have !BCD_or_Binary set to 1:
-  !CorrectPasscodeBinary = 0123
+  !CorrectPasscodeBinary = 1234
   !NumberOfDigits = 4
   
 ;Don't touch
@@ -43,8 +43,8 @@
 
  ;Don't touch, these calculates should it use $7FC0FC or $7FC0FD,
  ;as well as what bit in the byte to use.
-  !CustomTrigger_WhichByte = !CustomTrigger/8 ;This will be 0 if using triggers $00-$07, otherwise 1 if $08-$0F
-  !CustomTrigger_BitToUse = %00000001<<(!CustomTrigger%8)
+  !CustomTrigger_WhichByte #= !CustomTrigger/8 ;This will be 0 if using triggers $00-$07, otherwise 1 if $08-$0F
+  !CustomTrigger_BitToUse #= %00000001<<(!CustomTrigger%8)
 
 
 incsrc "../CustomLayer3Menu_Defines/Defines.asm"
@@ -64,9 +64,9 @@ BodyInside:
 	BEQ Return						;/
 	LDA $8F							;\Backup of $72. If Mario is not on ground, return
 	BNE Return						;/
-	LDA $7FC0FC+!CustomTrigger_WhichByte
-	AND.b #!CustomTrigger_BitToUse
-	if !ClearOrSet == 0					;\If player already enters the correct passcode, if he tries to do it again, do nothing.
+	LDA $7FC0FC+!CustomTrigger_WhichByte			;\If player already enters the correct passcode, if he tries to do it again, do nothing.
+	AND.b #!CustomTrigger_BitToUse				;|
+	if !ClearOrSet == 0					;|
 		BEQ Return
 	else
 		BNE Return
@@ -208,7 +208,7 @@ SuppliedCode:
 
 	if !BCD_or_Binary == 0
 		PasscodeCorrect:
-			db $00,$01,$02,$03 ;>Must be in between the two labels to get the number of digits correct.
+			db 1,2,3,4 ;>Must be in between the two labels to get the number of digits correct.
 		PasscodeCorrectEnd:
 	endif
 print "Passcode terminal"

@@ -20,7 +20,7 @@
  ; up to 9 digits are allowed.
  
  ;These apply if you have !BCD_or_Binary set to 1:
-  !CorrectPasscodeBinary = 0123
+  !CorrectPasscodeBinary = 1234
   !NumberOfDigits = 4
   
   
@@ -175,7 +175,7 @@ SuppliedCode:
 
 	if !BCD_or_Binary == 0
 		PasscodeCorrect:
-			db $00,$01,$02,$03 ;>Must be in between the two labels to get the number of digits correct.
+			db 1,2,3,4 ;>Must be in between the two labels to get the number of digits correct.
 		PasscodeCorrectEnd:
 	endif
 print "Passcode door"
