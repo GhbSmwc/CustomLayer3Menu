@@ -1,7 +1,13 @@
 ;Act as $025
-;This is a door that when UP is pressed will bring up the passcode UI. If the player cancels, the menu just closes with "cancel" sound effect.
-;If the player enters the correct passcode, it plays the "correct" sound effect, closes the menu, and teleports the player to whatever screen exit set by LM.
+;This is a "terminal" that when UP is pressed will bring up the passcode UI. If the player cancels, the menu just closes with "cancel" sound effect.
+;If the player enters the correct passcode, it plays the "correct" sound effect, closes the menu, and sets or clears the animation trigger flag.
 ;If the player enters the incorrect passcode, it plays the "incorrect" sound effect and closes the menu.
+;
+;I call this a gate because it is an obstacle that enables the player to access another area in the SAME level without the warp animation when the
+;passcode is correct rather than being an object that teleports the player to another level.
+;
+;The animation trigger flag can be used along with the custom trigger blocks: https://www.smwcentral.net/?p=section&a=details&id=3931 , preferably
+;blocks that are solid then become passable when the correct passcode is entered.
 
 ;If you have !BCD_or_Binary set to 0, The correct passcode is under the label "PasscodeCorrect". Each number should be a value 0-9 and it corresponds to what
 ;digit shown to the player in the same order (leftmost digit is the first number, second is second, and so on. Be careful not to have too many values more
@@ -23,12 +29,24 @@
   !CorrectPasscodeBinary = 0123
   !NumberOfDigits = 4
   
-  
 ;Don't touch
  !CorrectPasscodeSize = 0
  if !CorrectPasscodeBinary > 65535
   !CorrectPasscodeSize = 1
  endif
+;Custom trigger to use
+ !CustomTrigger = $00
+  ;^Only enter $00-$0F (0-15). This is what LM's CUSTOM trigger to use.
+ !ClearOrSet = 1
+  ;^0 = clear (bit will be 0)
+  ; 1 = set (bit will be 1)
+
+ ;Don't touch, these calculates should it use $7FC0FC or $7FC0FD,
+ ;as well as what bit in the byte to use.
+  !CustomTrigger_WhichByte = !CustomTrigger/8 ;This will be 0 if using triggers $00-$07, otherwise 1 if $08-$0F
+  !CustomTrigger_BitToUse = %00000001<<(!CustomTrigger%8)
+
+
 incsrc "../CustomLayer3Menu_Defines/Defines.asm"
 
 db $42 ; or db $37
@@ -46,7 +64,13 @@ BodyInside:
 	BEQ Return						;/
 	LDA $8F							;\Backup of $72. If Mario is not on ground, return
 	BNE Return						;/
-	%DoorCenterPlayer()
+	LDA $7FC0FC+!CustomTrigger_WhichByte
+	AND.b #!CustomTrigger_BitToUse
+	if !ClearOrSet == 0					;\If player already enters the correct passcode, if he tries to do it again, do nothing.
+		BEQ Return
+	else
+		BNE Return
+	endif							;/
 	LDA #$03						;\Activate the menu
 	STA !Freeram_CustomL3Menu_UIState			;|
 	LDA #$00						;|
@@ -112,10 +136,13 @@ SuppliedCode:
 			..Correct
 				LDA #!CustomL3Menu_SoundEffectNumber_Correct
 				STA !CustomL3Menu_SoundEffectPort_Correct
-				LDA #$06				;\Teleport player.
-				STA $71					;|
-				STZ $89					;|
-				STZ $88					;/
+				LDA $7FC0FC+!CustomTrigger_WhichByte		;\Write trigger bit.
+				if !ClearOrSet == 0
+					AND.b #!CustomTrigger_BitToUse^$FF
+				else
+					ORA.b #!CustomTrigger_BitToUse
+				endif
+				STA $7FC0FC+!CustomTrigger_WhichByte		;/
 				BRA .Done
 			..Incorrect
 				LDA #!CustomL3Menu_SoundEffectNumber_Rejected
@@ -134,10 +161,13 @@ SuppliedCode:
 				..Correct
 					LDA #!CustomL3Menu_SoundEffectNumber_Correct
 					STA !CustomL3Menu_SoundEffectPort_Correct
-					LDA #$06				;\Teleport player.
-					STA $71					;|
-					STZ $89					;|
-					STZ $88					;/
+					LDA $7FC0FC+!CustomTrigger_WhichByte		;\Write trigger bit.
+					if !ClearOrSet == 0
+						AND.b #!CustomTrigger_BitToUse^$FF
+					else
+						ORA.b #!CustomTrigger_BitToUse
+					endif
+					STA $7FC0FC+!CustomTrigger_WhichByte		;/
 					BRA .Done
 				..Incorrect
 					LDA #!CustomL3Menu_SoundEffectNumber_Rejected
@@ -157,10 +187,13 @@ SuppliedCode:
 					SEP #$20
 					LDA #!CustomL3Menu_SoundEffectNumber_Correct
 					STA !CustomL3Menu_SoundEffectPort_Correct
-					LDA #$06				;\Teleport player.
-					STA $71					;|
-					STZ $89					;|
-					STZ $88					;/
+					LDA $7FC0FC+!CustomTrigger_WhichByte		;\Write trigger bit.
+					if !ClearOrSet == 0
+						AND.b #!CustomTrigger_BitToUse^$FF
+					else
+						ORA.b #!CustomTrigger_BitToUse
+					endif
+					STA $7FC0FC+!CustomTrigger_WhichByte		;/
 					BRA .Done
 				..Incorrect
 					SEP #$20
@@ -178,4 +211,4 @@ SuppliedCode:
 			db $00,$01,$02,$03 ;>Must be in between the two labels to get the number of digits correct.
 		PasscodeCorrectEnd:
 	endif
-print "Passcode door"
+print "Passcode terminal"

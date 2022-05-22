@@ -1,5 +1,9 @@
 ;Act as $025
 ;This is the same as "PasscodeDoor.asm" BUT does not SET the passcode and is intended to work with randomized passcode.
+;
+;Note: This block itself does not set the passcode randomly. Make sure you set the passcode (via a randomizer) before
+;the player is able to use this block. This can be done by randomizing the passcode on level init or when they start
+;a new game.
 
 !Number_Of_Digits = 4
  ;^How many digits this passcode block has.
