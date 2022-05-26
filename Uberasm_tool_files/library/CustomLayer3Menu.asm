@@ -373,6 +373,9 @@ ProcessLayer3Menu:
 ;   increases, "up" decreases.
 ;  -$01 = horizontal (left and right moves the cursor horizontally). "Right"
 ;   increases, "Left" decreases.
+; !Freeram_CustomL3Menu_NumberOfCursorPositions (1 byte): Used so that
+;  the cursor wraps between the first and last options in the menu when the
+;  attempting to move the cursor beyond the first and last.
 ;Output:
 ; Carry: 0 = No change, 1 = change. Needed so we can only update what's change
 ;  on the stripe image.
@@ -389,8 +392,8 @@ DPadMoveCursorOnMenu:
 	.Decrease
 		LDA !Freeram_CustomL3Menu_CursorPos
 		DEC
-		CMP #$FF
-		BNE .NoWrapToBottom
+		CMP #$FF				;\If cursor goes beyond the first item, position the cursor to the last item
+		BNE .NoWrapToBottom			;/
 		.WrapToBottom
 			LDA !Freeram_CustomL3Menu_NumberOfCursorPositions
 		.NoWrapToBottom
@@ -399,9 +402,9 @@ DPadMoveCursorOnMenu:
 	.Increase
 		LDA !Freeram_CustomL3Menu_CursorPos
 		INC
-		CMP !Freeram_CustomL3Menu_NumberOfCursorPositions
-		BEQ .NotExceed
-		BCC .NotExceed
+		CMP !Freeram_CustomL3Menu_NumberOfCursorPositions	;\If cursor goes beyond the last item, position the cursor to the first item.
+		BEQ .NotExceed						;|
+		BCC .NotExceed						;/
 		
 		.Exceed
 			LDA #$00

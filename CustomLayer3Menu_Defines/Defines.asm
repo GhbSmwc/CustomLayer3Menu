@@ -53,11 +53,15 @@ endif
  !Freeram_CustomL3Menu_CursorPos = $60
   ;^[1 byte] Contains the position of the cursor. Note, for 2D movement, left and right adjusts this value -1/+1
   ; while vertical movement will -NumbOfCols/+NumbOfCols where NumbOfCols is the number of columns, or how many
-  ; selections per row.
+  ; selections per row. Note that this is "zero-based". Meaning the first option is position $00 and the last position
+  ; is a value stored in !Freeram_CustomL3Menu_NumberOfCursorPositions.
+  ;
+  ; When using "DPadMoveCursorOnMenu" in "Uberasm_tool_files/library/CustomLayer3Menu.asm":
+  ;  -$FF is a reserved value to indicate when the user moves the cursor beyond the first item to set the cursor to the last item.
   
  !Freeram_CustomL3Menu_NumberOfCursorPositions = $61
   ;^[1 byte] The number of valid cursor positions or digits in the passcode, -1. Used to prevent the cursor from going past the last
-  ; item (or last digit in passcode mode) in the menu.
+  ; item (or last digit in passcode mode) in the menu. Also used when the cursor goes beyond the first item so that it wraps to the last item.
 
  !Freeram_CustomL3Menu_DigitPasscodeUserInput = $06F9|!addr
   ;^[!CustomL3Menu_MaxNumberOfDigitsInEntireGame] bytes. Contains the string of characters entered by the user.
