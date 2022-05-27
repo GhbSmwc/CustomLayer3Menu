@@ -390,14 +390,15 @@ DPadMoveCursorOnMenu:
 	BRA .NoChange		;>If both opposite directions pressed in 1 frame, or none pressed at all, no moving cursor
 	
 	.Decrease
-		LDA !Freeram_CustomL3Menu_CursorPos
-		DEC
-		CMP #$FF				;\If cursor goes beyond the first item, position the cursor to the last item
-		BNE .NoWrapToBottom			;/
-		.WrapToBottom
+		LDA !Freeram_CustomL3Menu_CursorPos	;\If cursor goes beyond the first item (0 - 1 = -1 but we take the before-moved position to free up $FF as a menu choice should in a rare chance you need this)
+		BEQ ..WrapToBottom			;/jump to the last item.
+		..NoWrapToBottom
+			DEC
+			BRA ..SetPos
+		..WrapToBottom
 			LDA !Freeram_CustomL3Menu_NumberOfCursorPositions
-		.NoWrapToBottom
-		STA !Freeram_CustomL3Menu_CursorPos
+		..SetPos
+			STA !Freeram_CustomL3Menu_CursorPos
 		BRA .SFX
 	.Increase
 		LDA !Freeram_CustomL3Menu_CursorPos

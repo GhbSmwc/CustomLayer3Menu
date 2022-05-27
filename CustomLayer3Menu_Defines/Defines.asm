@@ -51,21 +51,30 @@ endif
   ; When opening or switching to different menus, this value should be set to #$00 on the frame the menu appears/changes.
 
  !Freeram_CustomL3Menu_CursorPos = $60
-  ;^[1 byte] Contains the position of the cursor. Note, for 2D movement, left and right adjusts this value -1/+1
-  ; while vertical movement will -NumbOfCols/+NumbOfCols where NumbOfCols is the number of columns, or how many
-  ; selections per row. Note that this is "zero-based". Meaning the first option is position $00 and the last position
-  ; is a value stored in !Freeram_CustomL3Menu_NumberOfCursorPositions.
+  ;^[1 byte] Contains the position of the cursor.
+  ; Notes:
   ;
-  ; When using "DPadMoveCursorOnMenu" in "Uberasm_tool_files/library/CustomLayer3Menu.asm":
-  ;  -$FF is a reserved value to indicate when the user moves the cursor beyond the first item to set the cursor to the last item.
+  ; -This is "zero-based". Meaning the first option is position $00 and the last position is a value stored in
+  ;  !Freeram_CustomL3Menu_NumberOfCursorPositions.
+  ;
+  ; -For 1D movement (a "normal" menu), left and up decrements this value while right/down increments this value.
+  ;
+  ; -for 2D movement, left and right adjusts this value -1/+1 while vertical movement will -NumbOfCols/+NumbOfCols where NumbOfCols
+  ;  is the number of columns, or how many selections per row.
   
  !Freeram_CustomL3Menu_NumberOfCursorPositions = $61
-  ;^[1 byte] The number of valid cursor positions or digits in the passcode, -1. Used to prevent the cursor from going past the last
-  ; item (or last digit in passcode mode) in the menu. Also used when the cursor goes beyond the first item so that it wraps to the last item.
+  ;^[1 byte] The number of valid cursor positions or digits in the passcode, -1.
+  ; Used for:
+  ;
+  ; -To prevent the cursor from going past the last item.
+  ;
+  ; -To make the cusor jump to the last item when the user moves the cursor past the first item.
+  ;
+  ; -For passcode digit mode, this is the number of digits to use (a 4-digit passcode means this have the value of #$03).
 
  !Freeram_CustomL3Menu_DigitPasscodeUserInput = $06F9|!addr
   ;^[!CustomL3Menu_MaxNumberOfDigitsInEntireGame] bytes. Contains the string of characters entered by the user.
-  ; This is used by the number password UI. Make sure this is all initialized to 0.
+  ; This is used by the number passcode UI. Make sure this is all initialized to 0.
 
  !Freeram_CustomL3Menu_DigitCorrectPasscode = $0F5E|!addr
   ;^[!CustomL3Menu_MaxNumberOfDigitsInEntireGame] bytes. Contains the string of characters that is the correct passcode
