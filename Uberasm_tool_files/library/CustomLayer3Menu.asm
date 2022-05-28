@@ -14,9 +14,13 @@
 ;Process layer 3 menu
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 TurboPulseRates:
-	db %00000111
-	db %00000011
-	db %00000001
+	;These are the increment rates when holding on the D-pad.
+	;This is the amount of delay, (2^n)-1, where n is a non-negative integer is every 2, 4, 8, 16... frames of $13 in between
+	;each direction firing. I don't recommend having a rate of firing every frame as that could cause audio problems (every
+	;time a sound is played starts silent first).
+	db %00000111	;>Slow (!Freeram_CustomL3Menu_DpadPulser is within values 8-29 quad-frames (every 4th frame from $13))
+	db %00000011	;>Medium (30-59)
+	db %00000001	;>Fast (60+)
 ProcessLayer3Menu:
 	LDA !Freeram_CustomL3Menu_UIState
 	BNE +
@@ -47,6 +51,8 @@ ProcessLayer3Menu:
 			STA $13FB|!addr		;>Also make player ignore gravity.
 		..SkipFreeze
 	.DpadTurbo
+		;This handles when the user holds down the D-pad long enough, will trigger a "repeat key press".
+		;Good for accessibility especially for huge menus.
 		LDA !Freeram_CustomL3Menu_DpadPulser		;\Clear out the pulse D-pad bits.
 		AND.b #%00001111				;|
 		STA !Freeram_CustomL3Menu_DpadPulser		;/
@@ -152,11 +158,37 @@ ProcessLayer3Menu:
 		STA !Freeram_CustomL3Menu_WritePhase	;/
 		RTL
 	;--------------------------------------------------------------------------------
-	;This one is a standard menu
+	;This one is a standard menu.
 	;--------------------------------------------------------------------------------
 		MenuSelection:
-			LDX #$00
-			JSL DPadMoveCursorOnMenu
+			PHB					;>Preserve bank
+			PHK					;\Change bank so that $xxxx,y works correctly
+			PLB					;/
+			
+			;Phase 1 & 2 also ignores player input since when the player input data, it updates the tiles, but we already did it here.
+			LDA !Freeram_CustomL3Menu_WritePhase
+			ASL
+			TAX
+			JMP.w (.MenuWritePhases,x)
+			.MenuWritePhases
+				dw ..WriteMenuItems		;>!Freeram_CustomL3Menu_WritePhase = $00 (X = $00)
+				dw ..WriteCursor		;>!Freeram_CustomL3Menu_WritePhase = $01 (X = $02)
+				dw ..RespondToUserInput		;>!Freeram_CustomL3Menu_WritePhase = $02 (X = $04)
+			
+			..WriteMenuItems
+				LDA #$01
+				STA !Freeram_CustomL3Menu_WritePhase
+				BRA .Done
+			..WriteCursor
+				LDA #$02
+				STA !Freeram_CustomL3Menu_WritePhase
+				BRA .Done
+			..RespondToUserInput
+				LDX #$00
+				JSL DPadMoveCursorOnMenu
+			
+			.Done
+			PLB					;>Restore bank
 			RTL
 	;--------------------------------------------------------------------------------
 	;Number input (passcode)
@@ -504,6 +536,90 @@ DPadMoveCursorOnMenuUpOrLeft:
 DPadMoveCursorOnMenuDownOrRight:
 	db %00000100			;>Vertical
 	db %00000001			;>Horizontal
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;Cursor move handler, 2D movement
+;Handles D-pad to move the cursor in 2D movement. Like text, the caret
+;also wraps to the next line when the end of the line has been exceeded.
+;
+;Input:
+; $00 (1 byte): How many columns the menu spans.
+; !Freeram_CustomL3Menu_NumberOfCursorPositions (1 byte): Used so that
+;  the cursor can only be at valid positions. As this value increases
+;  positions will be added to the "right" and if a row is finished,
+;  will "line wrap".
+;Output:
+; Carry: 0 = No change, 1 = change. Needed so we can only update what's change
+;  on the stripe image.
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+DPadMoveCursorOnMenu2D:
+	LDA !Freeram_CustomL3Menu_DpadPulser
+	AND.b #%11110000
+	BEQ .NoMovement
+	.Horizontal
+		AND.b #%00110000		;\Used CMP just in case user presses opposite directions at the same time.
+		CMP.b #%00100000		;|
+		BEQ ..Decrement1		;|
+		CMP.b #%00010000		;|
+		BEQ ..Increment1		;/
+		BRA .Vertical
+		
+		..Decrement1
+			LDA !Freeram_CustomL3Menu_CursorPos
+			BEQ ...Wrap
+			DEC A
+			BRA ...Write
+			
+			...Wrap
+				LDA !Freeram_CustomL3Menu_NumberOfCursorPositions
+			...Write
+				STA !Freeram_CustomL3Menu_CursorPos
+		BRA .Vertical
+		..Increment1
+			LDA !Freeram_CustomL3Menu_CursorPos
+			INC
+			CMP !Freeram_CustomL3Menu_NumberOfCursorPositions
+			BEQ ...Write
+			BCC ...Write
+			
+			...Exceed
+				LDA #$00
+			...Write
+				STA !Freeram_CustomL3Menu_CursorPos
+	.Vertical
+		LDA !Freeram_CustomL3Menu_DpadPulser
+		AND.b #%11000000			;\Again, using CMP and "somewhat unoptimized" code because
+		CMP.b #%10000000			;|the user could enter a D-pad pressing opposite directions.
+		BEQ ..DecrementByRAM			;|
+		CMP.b #%01000000			;|
+		BEQ ..IncrementByRAM			;/
+		BRA .Done
+		
+		..DecrementByRAM
+			LDA !Freeram_CustomL3Menu_CursorPos
+			SEC
+			SBC $00
+			BCS ...Write
+			...Wrap
+				LDA !Freeram_CustomL3Menu_NumberOfCursorPositions
+			...Write
+				STA !Freeram_CustomL3Menu_CursorPos
+		..IncrementByRAM
+			LDA !Freeram_CustomL3Menu_CursorPos
+			CLC
+			ADC $00
+			CMP !Freeram_CustomL3Menu_NumberOfCursorPositions
+			BEQ ...Write
+			BCC ...Write
+			...Wrap
+				LDA #$00
+			...Write
+				STA !Freeram_CustomL3Menu_CursorPos
+	.Done
+		SEC
+		RTL
+	.NoMovement
+		CLC
+		RTL
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;Easy stripe setup-er. Gets index of stripe table and sets up the header.
 ;Input:

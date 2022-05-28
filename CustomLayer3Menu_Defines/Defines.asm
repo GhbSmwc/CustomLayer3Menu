@@ -115,11 +115,14 @@ endif
   ; !Freeram_ControlBackup+3: $18 (%axlr---- first frame only)
 
  !Freeram_CustomL3Menu_DpadHoldTimer = $62
-  ;^[1 byte] A counter that counts how many "quad-frames" a specified direction on the D pad is being held down without changing direction
-  ; (every 4th frame when RAM $13 is a multiple of 4). Used for making the cursor act as if the player is repeatedly pressing a direction when
-  ; holding down a direction long enough (in this case a second, enters "turbo mode"). Formula:
+  ;^[1 byte] A counter that counts how many "quad-frames" (every 4th frame of $13) a specified direction on the D pad is being held down
+  ; without changing direction. Used for making the cursor act as if the player is repeatedly pressing a direction when holding down a
+  ; direction long enough (in this case a second, enters "turbo mode"). Formula:
   ;
   ; !Freeram_CustomL3Menu_DpadHoldTimer = seconds * 15
+  ;
+  ; Note that this isn't exact because $13 always increments. So it depends on the amount of time between the start of holding down the
+  ; D-pad and the upcoming 4th frame.
 
  !Freeram_CustomL3Menu_DpadPulser  = $63
   ;^[1 byte] a backup of the UDLR bits from !Freeram_ControlBackup. This is to detect if the player remains holding in a specific direction
@@ -134,7 +137,10 @@ endif
   ;
   ; Low nybble UDLR contains the previous frame of the UDLR bits in !Freeram_ControlBackup. This is to check if the player changes D-pad
   ; directions to reset the "turbo mode"
-  ; High nybble udlr is the "D-pad oscillator" that alternates between 0 and 1, therefore repeatedly firing a direction.
+  ;
+  ; High nybble udlr is the "D-pad oscillator" that alternates between 0 and 1, therefore repeatedly firing a direction. Note that this
+  ; also stores the UDLR bits from !Freeram_ControlBackup+1 so that the cursor moves on the first frame the player presses the D-pad
+  ; initially.
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;Scratch RAM
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
