@@ -114,7 +114,35 @@ endif
   ; !Freeram_ControlBackup+2: $17 (%axlr---- held down)
   ; !Freeram_ControlBackup+3: $18 (%axlr---- first frame only)
 
- !Scratchram_32bitDecToHexOutput = $0F42|!addr
+ !Freeram_CustomL3Menu_DpadHoldTimer = $62
+  ;^[1 byte] A counter that counts how many "quad-frames" a specified direction on the D pad is being held down without changing direction
+  ; (every 4th frame when RAM $13 is a multiple of 4). Used for making the cursor act as if the player is repeatedly pressing a direction when
+  ; holding down a direction long enough (in this case a second, enters "turbo mode"). Formula:
+  ;
+  ; !Freeram_CustomL3Menu_DpadHoldTimer = seconds * 15
+
+ !Freeram_CustomL3Menu_DpadPulser  = $63
+  ;^[1 byte] a backup of the UDLR bits from !Freeram_ControlBackup. This is to detect if the player remains holding in a specific direction
+  ; without changing. Format:
+  ;
+  ; udlrUDLR
+  ;
+  ; U/u = up
+  ; D/d = down
+  ; L/l = left
+  ; R/r = right
+  ;
+  ; Low nybble UDLR contains the previous frame of the UDLR bits in !Freeram_ControlBackup. This is to check if the player changes D-pad
+  ; directions to reset the "turbo mode"
+  ; High nybble udlr is the "D-pad oscillator" that alternates between 0 and 1, therefore repeatedly firing a direction.
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;Scratch RAM
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+ if !sa1 == 0
+  !Scratchram_32bitDecToHexOutput = $7F844A
+ else
+  !Scratchram_32bitDecToHexOutput = $400198
+ endif
   ;[4 bytes] Only used when "ReadPasscodeQuantity32Bit" is being used. This is the output of a 32-bit unsigned integer (little
   ;endian) when converting numbers from !Freeram_CustomL3Menu_DigitPasscodeUserInput to a raw binary number.
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

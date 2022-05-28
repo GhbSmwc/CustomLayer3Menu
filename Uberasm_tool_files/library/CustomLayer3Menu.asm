@@ -13,37 +13,107 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;Process layer 3 menu
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+TurboPulseRates:
+	db %00000111
+	db %00000011
+	db %00000001
 ProcessLayer3Menu:
 	LDA !Freeram_CustomL3Menu_UIState
 	BNE +
 	.Done
+	LDA #$00					;\Prevent opening the menu and if the player holds down the D-pad
+	STA !Freeram_CustomL3Menu_DpadHoldTimer		;/the timer will pick up right where it left off and starts out with full speed.
 	RTL
 	+
 	
-	;CMP #$XX		;\If you want some UI states to not freeze time,
-	;BEQ .SkipFreeze	;/uncomment the code here.
-	LDA $71			;\Don't cancel Mario's teleportation or other animation
-	CMP #$0B
-	BEQ .Freeze
-	CMP #$06
-	BEQ .Teleporting
-	CMP #$00
-	BNE .Done	;/
+	.HandleFrozen
+		;CMP #$XX		;\If you want some UI states to not freeze time,
+		;BEQ .SkipFreeze	;/uncomment the code here.
+		LDA $71			;\Don't cancel Mario's teleportation or other animation
+		CMP #$0B
+		BEQ ..Freeze
+		CMP #$06
+		BEQ ..Teleporting
+		CMP #$00
+		BNE .Done	;/
 	
-	.Freeze
-	LDA #$0B
-	STA $71
+		..Freeze
+			LDA #$0B		;\Allow $9D not to be cleared.
+			STA $71			;/
 	
-	.Teleporting
-	LDA #$01
-	STA $9D
-	STA $13FB|!addr		;>Also make player ignore gravity.
-	
-	++
-	.SkipFreeze
-	LDA !Freeram_CustomL3Menu_UIState
+		..Teleporting
+			LDA #$01
+			STA $9D
+			STA $13FB|!addr		;>Also make player ignore gravity.
+		..SkipFreeze
+	.DpadTurbo
+		LDA !Freeram_CustomL3Menu_DpadPulser		;\Clear out the pulse D-pad bits.
+		AND.b #%00001111				;|
+		STA !Freeram_CustomL3Menu_DpadPulser		;/
+		LDA !Freeram_ControlBackup+1			;\And write the 1-frame D-pad inputs (so if the user shortly presses a direction, the first frame guaranteed a cursor move)
+		ASL #4						;|
+		ORA !Freeram_CustomL3Menu_DpadPulser		;|
+		STA !Freeram_CustomL3Menu_DpadPulser		;/
+		..CheckHoldingDownDpadWithoutChanging
+			LDA !Freeram_CustomL3Menu_DpadPulser
+			AND.b #%00001111
+			STA $00					;>$00 = previous D-pad input
+			LDA !Freeram_ControlBackup+0		;\If not pressing in any direction, no turbo
+			AND.b #%00001111			;|
+			BEQ ..ResetTurbo			;/
+			CMP $00					;\If changed D-pad direction, no turbo
+			BNE ..ResetTurbo			;/
+		..IncrementTurboTimerAndFireTurbo
+			LDA !Freeram_CustomL3Menu_DpadHoldTimer
+			CMP #$FF				;>Overflow protection
+			BEQ ...NoIncrementTimer
+			LDA $13					;\Every 4th frame...
+			AND.b #%00000011			;|
+			BNE ...NoIncrementTimer			;/
+			LDA !Freeram_CustomL3Menu_DpadHoldTimer	;\...Increase timer. Therefore each unit of !Freeram_CustomL3Menu_DpadHoldTimer = Frames*4
+			INC					;|
+			STA !Freeram_CustomL3Menu_DpadHoldTimer	;/
+			...NoIncrementTimer
+			LDA !Freeram_CustomL3Menu_DpadHoldTimer
+		..ThreasholdSpeeds
+			;Remember, Ticks = Seconds*15
+			CMP.b #8				;\Prevent the multi-tap when the player taps just once (no accidental additional move cursor).
+			BCC ..UpdatePreviousInput		;/
+			LDX #$00				;\Slow rate (X = $00)
+			CMP.b #(2*15)				;|
+			BCC ...Pulse				;/
+			INX					;\Medium rate (X = $01)
+			CMP.b #(4*15)				;|
+			BCC ...Pulse				;/
+			INX					;>Fast rate (X = $02)
+			
+			...Pulse
+				LDA $13						;\Only every 2^n frames allows turbo pulsing
+				AND TurboPulseRates,x				;|
+				BNE ..UpdatePreviousInput			;/
+				LDA !Freeram_CustomL3Menu_DpadPulser		;\Clear high nybble of pulser...
+				AND.b #%00001111				;|
+				STA !Freeram_CustomL3Menu_DpadPulser		;/
+				LDA !Freeram_ControlBackup			;\...then set only that high nybble of pulser.
+				ASL #4						;|
+				ORA !Freeram_CustomL3Menu_DpadPulser		;|
+				STA !Freeram_CustomL3Menu_DpadPulser		;/
+				BRA ..UpdatePreviousInput
+		..ResetTurbo
+			LDA #$00
+		..WriteTurboTimer
+			STA !Freeram_CustomL3Menu_DpadHoldTimer
+		..UpdatePreviousInput
+			LDA !Freeram_CustomL3Menu_DpadPulser		;\Clear low nybble of pulser...
+			AND.b #%11110000				;|
+			STA !Freeram_CustomL3Menu_DpadPulser		;/
+			LDA !Freeram_ControlBackup			;\...then set only that low nybble of pulser.
+			AND.b #%00001111				;|
+			ORA !Freeram_CustomL3Menu_DpadPulser		;|
+			STA !Freeram_CustomL3Menu_DpadPulser		;/
 	
 	.MenuTypeHandler
+		LDA !Freeram_CustomL3Menu_UIState
 		ASL			;\Values >= 128 would have bit 7 being set, which
 		TAX			;|"overflows" when a left-shift is performed. When this happens
 		BCS +			;/the carry flag is set, so we can make it use a separate table.
@@ -180,9 +250,11 @@ ProcessLayer3Menu:
 					...AdjustNumber
 					LDA !Freeram_CustomL3Menu_CursorPos	;\Depending on your cursor positiuon adjust what number to increase/decrease
 					TAX					;/
-					LDA !Freeram_ControlBackup+1				;\Controller: byetUDLR -> 00byetUD -> 000000UD into the Y index
-					LSR #2							;|to determine to increment or decrement it
-					AND.b #%00000011					;|
+					;LDA !Freeram_ControlBackup+1				;\Controller: byetUDLR -> 00byetUD -> 000000UD into the Y index
+					;LSR #2							;|to determine to increment or decrement it
+					;AND.b #%00000011					;|
+					LDA !Freeram_CustomL3Menu_DpadPulser			;|>udlrUDLR -> 000000ud
+					LSR #6
 					TAY							;/
 					LDA !Freeram_CustomL3Menu_DigitPasscodeUserInput,x	;\Take current digit and increment and decrement
 					CLC							;|
@@ -381,7 +453,9 @@ ProcessLayer3Menu:
 ;  on the stripe image.
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 DPadMoveCursorOnMenu:
-	LDA !Freeram_ControlBackup+1
+	;LDA !Freeram_ControlBackup+1
+	LDA !Freeram_CustomL3Menu_DpadPulser
+	LSR #4						;>Use only pulsing D-pad bits
 	AND DPadMoveCursorOnMenuWhichOrientation,x	;>Mask all bits except the 2 directions
 	CMP DPadMoveCursorOnMenuUpOrLeft,x
 	BEQ .Decrease

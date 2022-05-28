@@ -1,4 +1,4 @@
-;If you have trouble assigning what RAM to use, I proveded this that you can copy and paste
+;If you have trouble assigning what RAM to use, I provided this that you can copy and paste
 ;using the addresser tool here: https://www.smwcentral.net/?p=section&a=details&id=29064
 UI	!Freeram_CustomL3Menu_UIState	1	-	-
 UI	!Freeram_CustomL3Menu_WritePhase	1	-	-
@@ -11,5 +11,6 @@ UI	!Freeram_CustomL3Menu_DigitPasscodeUserInput	8	-	-
 UI	!Freeram_CustomL3Menu_DigitCorrectPasscode	8	-	-
 UI	!Freeram_CustomL3Menu_PasscodeCallBackSubroutine	4	-	-
 UI	!Freeram_ControlBackup	4	-	-
-UI	!Freeram_BlockedStatBkp	1	-	-
-UI	!Freeram_32bitDecToHexOutput	4	-	-
+UI	!Scratchram_32bitDecToHexOutput	4	-	-
+UI	!Freeram_CustomL3Menu_DpadHoldTimer	1	-	-
+UI	!Freeram_CustomL3Menu_DpadPulser	1	-	-
