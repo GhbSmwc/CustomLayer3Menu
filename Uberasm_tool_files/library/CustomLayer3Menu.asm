@@ -165,28 +165,53 @@ ProcessLayer3Menu:
 			PHK					;\Change bank so that $xxxx,y works correctly
 			PLB					;/
 			
-			;Phase 1 & 2 also ignores player input since when the player input data, it updates the tiles, but we already did it here.
-			LDA !Freeram_CustomL3Menu_WritePhase
-			ASL
-			TAX
-			JMP.w (.MenuWritePhases,x)
-			.MenuWritePhases
-				dw ..WriteMenuItems		;>!Freeram_CustomL3Menu_WritePhase = $00 (X = $00)
-				dw ..WriteCursor		;>!Freeram_CustomL3Menu_WritePhase = $01 (X = $02)
-				dw ..RespondToUserInput		;>!Freeram_CustomL3Menu_WritePhase = $02 (X = $04)
-			
-			..WriteMenuItems
-				LDA #$01
-				STA !Freeram_CustomL3Menu_WritePhase
-				BRA .Done
-			..WriteCursor
-				LDA #$02
-				STA !Freeram_CustomL3Menu_WritePhase
-				BRA .Done
-			..RespondToUserInput
+			.RespondToUserInput
 				LDX #$00
-				JSL DPadMoveCursorOnMenu
-			
+				JSL DPadMoveCursorOnMenu					;>$00 = previous cursor position
+				BCC ..NoInput
+				wdm
+				..ClampTheScrollPosToBeWhereTheCursorIsAt
+					;We have to treat the positons here as if they're 16-bit so that we can have more than 127 possible options without
+					;potential glitches as well as when the cursor wraps the menu.
+					LDA !Freeram_CustomL3Menu_CursorPos
+					SEC
+					SBC !Freeram_CustomL3Menu_MenuScrollPos
+					LDA #$00
+					SBC #$00
+					BMI ...ScrollUp
+					
+					...HandleScrollDown
+					LDA !Freeram_CustomL3Menu_MenuScrollPos			;\$01-$02: Last option displayed position
+					CLC							;|
+					ADC !Freeram_CustomL3Menu_NumberOfDisplayedOptions	;|
+					STA $01							;|
+					LDA #$00						;|
+					ADC #$00						;|
+					STA $02							;/
+					LDA !Freeram_CustomL3Menu_CursorPos			;\
+					SEC							;|
+					SBC $01							;|
+					STA $00
+					LDA #$00	
+					SBC $02		
+					STA $02
+					REP #$20
+					LDA $01
+					SEP #$20
+					BEQ ...ScrollDone
+					BPL ...ScrollDown
+					BRA ...ScrollDone
+					...ScrollUp
+						LDA !Freeram_CustomL3Menu_CursorPos
+						BRA ...WriteScrollPos
+					...ScrollDown
+						LDA !Freeram_CustomL3Menu_CursorPos
+						SEC
+						SBC !Freeram_CustomL3Menu_NumberOfDisplayedOptions
+					...WriteScrollPos
+						STA !Freeram_CustomL3Menu_MenuScrollPos
+					...ScrollDone
+				..NoInput
 			.Done
 			PLB					;>Restore bank
 			RTL
@@ -477,6 +502,7 @@ ProcessLayer3Menu:
 ;   increases, "up" decreases.
 ;  -$01 = horizontal (left and right moves the cursor horizontally). "Right"
 ;   increases, "Left" decreases.
+; RAM $00: Contains the previous position of !Freeram_CustomL3Menu_CursorPos.
 ; !Freeram_CustomL3Menu_NumberOfCursorPositions (1 byte): Used so that
 ;  the cursor wraps between the first and last options in the menu when the
 ;  attempting to move the cursor beyond the first and last.
@@ -485,7 +511,8 @@ ProcessLayer3Menu:
 ;  on the stripe image.
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 DPadMoveCursorOnMenu:
-	;LDA !Freeram_ControlBackup+1
+	LDA !Freeram_CustomL3Menu_CursorPos
+	STA $00
 	LDA !Freeram_CustomL3Menu_DpadPulser
 	LSR #4						;>Use only pulsing D-pad bits
 	AND DPadMoveCursorOnMenuWhichOrientation,x	;>Mask all bits except the 2 directions

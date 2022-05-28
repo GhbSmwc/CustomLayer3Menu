@@ -14,3 +14,5 @@ UI	!Freeram_ControlBackup	4	-	-
 UI	!Scratchram_32bitDecToHexOutput	4	-	-
 UI	!Freeram_CustomL3Menu_DpadHoldTimer	1	-	-
 UI	!Freeram_CustomL3Menu_DpadPulser	1	-	-
+UI	!Freeram_CustomL3Menu_MenuScrollPos	1	-	-
+UI	!Freeram_CustomL3Menu_NumberOfDisplayedOptions	1	-	-

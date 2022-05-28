@@ -63,7 +63,7 @@ endif
   ;  is the number of columns, or how many selections per row.
   
  !Freeram_CustomL3Menu_NumberOfCursorPositions = $61
-  ;^[1 byte] The number of valid cursor positions or digits in the passcode, -1.
+  ;^[1 byte] The number of valid cursor positions (number of options) or digits in the passcode, -1.
   ; Used for:
   ;
   ; -To prevent the cursor from going past the last item.
@@ -141,6 +141,12 @@ endif
   ; High nybble udlr is the "D-pad oscillator" that alternates between 0 and 1, therefore repeatedly firing a direction. Note that this
   ; also stores the UDLR bits from !Freeram_ControlBackup+1 so that the cursor moves on the first frame the player presses the D-pad
   ; initially.
+
+ !Freeram_CustomL3Menu_MenuScrollPos = $79
+  ;^[1 byte] This represents the scroll position should there be more options than displayed. This is mapped to the first option at the top.
+
+ !Freeram_CustomL3Menu_NumberOfDisplayedOptions = $7C
+  ;^[1 byte] This is the number of displayed options, minus 1. Used for scrolling menu displays if there are more options than displayed.
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;Scratch RAM
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
