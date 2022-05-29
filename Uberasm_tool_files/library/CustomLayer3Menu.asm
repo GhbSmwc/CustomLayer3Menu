@@ -172,7 +172,7 @@ ProcessLayer3Menu:
 				LDA !Freeram_CustomL3Menu_CursorPos
 				SEC
 				SBC !Freeram_CustomL3Menu_MenuScrollPos
-				STA $00								;>$00 = Cursor position relative to scroll (used as to check if it move in "relation to the screen" to know if a VRAM update is needed)
+				STA $06								;>$06 = Cursor position relative to scroll (used as to check if it move in "relation to the screen" to know if a VRAM update is needed)
 				LDA !Freeram_CustomL3Menu_MenuScrollPos
 				STA $01								;>$01 = Scroll position (before the change, again, used to check should the options need an update)
 				LDX #$00
@@ -219,43 +219,103 @@ ProcessLayer3Menu:
 						STA !Freeram_CustomL3Menu_MenuScrollPos
 					...ScrollDone
 				..ChangeDetection
-					LDX #$00
-					LDA !Freeram_CustomL3Menu_CursorPos
-					SEC
-					SBC !Freeram_CustomL3Menu_MenuScrollPos
-					CMP $00
-					BEQ ...NoCursorChange
-					...CursorChange
-						WDM
-						INX
-					...NoCursorChange
-					STX $00			;>$00: %0000000C, C bit:Cursor needs to update: 0 = no, 1 = yes.
-					LDX #$00
-					LDA !Freeram_CustomL3Menu_MenuScrollPos
-					CMP $01
-					BEQ ...NoScroll
+					...Cursor
+						LDX #$00
+						LDA !Freeram_CustomL3Menu_CursorPos
+						SEC
+						SBC !Freeram_CustomL3Menu_MenuScrollPos
+						CMP $06
+						BEQ ....NoCursorChange
+						....CursorChange
+							INX
+						....NoCursorChange
+						STX $07			;>$07: %0000000C, C bit:Cursor needs to update: 0 = no, 1 = yes.
 					...Scroll
-						INX
-					...NoScroll
-					LDA $00
-					ORA MenuSelectionBitwiseMenuScroll,x
-					STA $00			;>$00: %000000SC, S bit: scroll needs to update: 0 = no, 1 = yes.
-					;We now have the info stored at $00:
+						LDX #$00
+						LDA !Freeram_CustomL3Menu_MenuScrollPos
+						CMP $07
+						BEQ ....NoScroll
+						....DidScroll
+							INX
+						....NoScroll
+						LDA $07
+						ORA MenuSelectionBitwiseMenuScroll,x
+						STA $07			;>$07: %000000SC, S bit: scroll needs to update: 0 = no, 1 = yes.
+				..DrawMenu
+					;We now have the info stored:
+					;-RAM $00-$05 will be used for handling stripe
+					;-Taking the value stored in !Freeram_CustomL3Menu_CursorPos and subtracting whats stored in
+					; !Freeram_CustomL3Menu_MenuScrollPos right here will give you the current cursor position relative to the scroll position.
+					;-RAM $06: Previous cursor position relative to the scroll (effectively this is the position "relative to the screen"), before it was moved.
+					; This is needed so that when the cursor move without scrolling, or have wrapped to and from the first and last item in a menu when
+					; the number of options is longer than how many options shown, to erase the previous cursor with the new cursor drawn on the current option.
 					;
-					;%000000SC
+					;-RAM $07: What menu elements need to update, format:
 					;
-					;C = Cursor position change in relation to the scroll position. When just the cursor moves and no scrolling occurred,
-					;    this bit is set.
-					;S = Scrolled flag. When menu scrolling occurred (move cursor upwards when it is at the top or downwards at the bottom),
-					;    this bit is set.
-					;
-					;Both C and S bits are set when a wraparound occured and the displayed options are less than the number of existing options.
-					;
+					; %000000SC
+					; 
+					; C = Cursor position change in relation to the scroll position. When just the cursor moves and no scrolling occurred,
+					;     this bit is set.
+					; S = Scrolled flag. When menu scrolling occurred (move cursor upwards when it is at the top or downwards at the bottom),
+					;     this bit is set.
+					; 
+					; Both C and S bits are set when a wraparound occurred and the displayed options are less than the number of existing options.
+					; 
 					;Reason to have such an info is we need to only update the tiles if necessary. This is to prevent potential VRAM overflow:
 					;black bars flickering at the top of the screen.
+					...Cursor
+						;DrawCursorPos = (CursorPosRelativeToScroll*2) + #!CustomL3Menu_MenuDisplay_YPos
+						;
+						;(CursorPos*2) makes it so the cursor jumps up/down by 2 lines since the menu are "double-spaced" line breaks.
+						LDA !Freeram_CustomL3Menu_WritePhase			;\Draw cursor (so when the menu appears, and before the player moves the cusor, the cursor shows up and not only show the options)
+						BEQ ....WriteCurrentCursorPos				;/
+						LDA $07
+						AND.b #%00000001
+						BEQ ....CursorWriteDone
+						....ErasePreviousCursor
+							LDA $06						;\Y position
+							ASL						;|
+							CLC						;|
+							ADC #!CustomL3Menu_MenuDisplay_YPos		;|
+							STA $01						;/
+							JSR .SetupStripeDrawCursor
+							JSL SetupStripeHeaderAndIndex
+							LDA #$FC					;\Tile number
+							STA.l $7F837D+4,x				;/
+							LDA.b #%00000000				;\Tile properties (YXPCCCTT)
+							STA.l $7F837D+4+1,x				;/
+							JSL FinishStripe
+						....WriteCurrentCursorPos
+							LDA #$01					;\Make it so that it forcibly draws on initial menu appearing and not every frame besides the user moving cursor.
+							STA !Freeram_CustomL3Menu_WritePhase		;/
+							LDA !Freeram_CustomL3Menu_CursorPos		;\Y position
+							SEC						;|
+							SBC !Freeram_CustomL3Menu_MenuScrollPos		;|>A = cursor position relative to scroll, currently
+							ASL						;|
+							CLC						;|
+							ADC #!CustomL3Menu_MenuDisplay_YPos		;|
+							STA $01						;/
+							JSR .SetupStripeDrawCursor
+							JSL SetupStripeHeaderAndIndex
+							LDA #$2E					;\Tile number
+							STA.l $7F837D+4,x				;/
+							LDA.b #%00101001				;\Tile properties (YXPCCCTT)
+							STA.l $7F837D+4+1,x				;/
+							JSL FinishStripe
+						....CursorWriteDone
 			.Done
 			PLB					;>Restore bank
 			RTL
+			.SetupStripeDrawCursor
+				LDA.b #!CustomL3Menu_MenuDisplay_XPos		;\X position
+				STA $00						;/
+				LDA #$05					;\Layer 3
+				STA $02						;/
+				STZ $03						;>Direction and RLE
+				LDA #$01					;\Number of tiles
+				STA $04						;|
+				STZ $05						;/
+				RTS
 	;--------------------------------------------------------------------------------
 	;Number input (passcode)
 	;--------------------------------------------------------------------------------
