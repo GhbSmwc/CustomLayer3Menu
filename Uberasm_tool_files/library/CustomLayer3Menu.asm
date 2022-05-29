@@ -160,47 +160,54 @@ ProcessLayer3Menu:
 	;--------------------------------------------------------------------------------
 	;This one is a standard menu.
 	;--------------------------------------------------------------------------------
+		MenuSelectionBitwiseMenuScroll:
+			db %00000000
+			db %00000010
 		MenuSelection:
 			PHB					;>Preserve bank
 			PHK					;\Change bank so that $xxxx,y works correctly
 			PLB					;/
 			
 			.RespondToUserInput
+				LDA !Freeram_CustomL3Menu_CursorPos
+				SEC
+				SBC !Freeram_CustomL3Menu_MenuScrollPos
+				STA $00								;>$00 = Cursor position relative to scroll (used as to check if it move in "relation to the screen" to know if a VRAM update is needed)
+				LDA !Freeram_CustomL3Menu_MenuScrollPos
+				STA $01								;>$01 = Scroll position (before the change, again, used to check should the options need an update)
 				LDX #$00
-				JSL DPadMoveCursorOnMenu					;>$00 = previous cursor position
-				BCC ..NoInput
-				wdm
+				JSL DPadMoveCursorOnMenu
 				..ClampTheScrollPosToBeWhereTheCursorIsAt
 					;We have to treat the positons here as if they're 16-bit so that we can have more than 127 possible options without
 					;potential glitches as well as when the cursor wraps the menu.
-					LDA !Freeram_CustomL3Menu_CursorPos
-					SEC
-					SBC !Freeram_CustomL3Menu_MenuScrollPos
-					LDA #$00
-					SBC #$00
-					BMI ...ScrollUp
+					LDA !Freeram_CustomL3Menu_CursorPos			;\Carry here clears if CursorPos < ScrollPos
+					SEC							;|
+					SBC !Freeram_CustomL3Menu_MenuScrollPos			;|
+					LDA #$00						;|
+					SBC #$00						;/
+					BMI ...ScrollUp						;>Which can be used to check if the cursor is above the scrolled area.
 					
 					...HandleScrollDown
-					LDA !Freeram_CustomL3Menu_MenuScrollPos			;\$01-$02: Last option displayed position
+					LDA !Freeram_CustomL3Menu_MenuScrollPos			;\$02-$03: Last option displayed position
 					CLC							;|
 					ADC !Freeram_CustomL3Menu_NumberOfDisplayedOptions	;|
-					STA $01							;|
+					STA $02							;|
 					LDA #$00						;|
 					ADC #$00						;|
-					STA $02							;/
-					LDA !Freeram_CustomL3Menu_CursorPos			;\
+					STA $03							;/
+					LDA !Freeram_CustomL3Menu_CursorPos			;\$02-$03: Cursor position, relative to scroll position.
 					SEC							;|
-					SBC $01							;|
-					STA $00
-					LDA #$00	
-					SBC $02		
-					STA $02
+					SBC $02							;|
+					STA $02							;|
+					LDA #$00						;|
+					SBC $03							;|
+					STA $03							;/
 					REP #$20
-					LDA $01
+					LDA $02
 					SEP #$20
-					BEQ ...ScrollDone
-					BPL ...ScrollDown
-					BRA ...ScrollDone
+					BEQ ...ScrollDone					;\If cursor relative to scroll pos is past the last displayed option, scroll down.
+					BPL ...ScrollDown					;/
+					BRA ...ScrollDone					;>Situation where the cursor moves but not scroll.
 					...ScrollUp
 						LDA !Freeram_CustomL3Menu_CursorPos
 						BRA ...WriteScrollPos
@@ -211,7 +218,41 @@ ProcessLayer3Menu:
 					...WriteScrollPos
 						STA !Freeram_CustomL3Menu_MenuScrollPos
 					...ScrollDone
-				..NoInput
+				..ChangeDetection
+					LDX #$00
+					LDA !Freeram_CustomL3Menu_CursorPos
+					SEC
+					SBC !Freeram_CustomL3Menu_MenuScrollPos
+					CMP $00
+					BEQ ...NoCursorChange
+					...CursorChange
+						WDM
+						INX
+					...NoCursorChange
+					STX $00			;>$00: %0000000C, C bit:Cursor needs to update: 0 = no, 1 = yes.
+					LDX #$00
+					LDA !Freeram_CustomL3Menu_MenuScrollPos
+					CMP $01
+					BEQ ...NoScroll
+					...Scroll
+						INX
+					...NoScroll
+					LDA $00
+					ORA MenuSelectionBitwiseMenuScroll,x
+					STA $00			;>$00: %000000SC, S bit: scroll needs to update: 0 = no, 1 = yes.
+					;We now have the info stored at $00:
+					;
+					;%000000SC
+					;
+					;C = Cursor position change in relation to the scroll position. When just the cursor moves and no scrolling occurred,
+					;    this bit is set.
+					;S = Scrolled flag. When menu scrolling occurred (move cursor upwards when it is at the top or downwards at the bottom),
+					;    this bit is set.
+					;
+					;Both C and S bits are set when a wraparound occured and the displayed options are less than the number of existing options.
+					;
+					;Reason to have such an info is we need to only update the tiles if necessary. This is to prevent potential VRAM overflow:
+					;black bars flickering at the top of the screen.
 			.Done
 			PLB					;>Restore bank
 			RTL
@@ -502,17 +543,11 @@ ProcessLayer3Menu:
 ;   increases, "up" decreases.
 ;  -$01 = horizontal (left and right moves the cursor horizontally). "Right"
 ;   increases, "Left" decreases.
-; RAM $00: Contains the previous position of !Freeram_CustomL3Menu_CursorPos.
-; !Freeram_CustomL3Menu_NumberOfCursorPositions (1 byte): Used so that
-;  the cursor wraps between the first and last options in the menu when the
-;  attempting to move the cursor beyond the first and last.
 ;Output:
 ; Carry: 0 = No change, 1 = change. Needed so we can only update what's change
 ;  on the stripe image.
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 DPadMoveCursorOnMenu:
-	LDA !Freeram_CustomL3Menu_CursorPos
-	STA $00
 	LDA !Freeram_CustomL3Menu_DpadPulser
 	LSR #4						;>Use only pulsing D-pad bits
 	AND DPadMoveCursorOnMenuWhichOrientation,x	;>Mask all bits except the 2 directions
