@@ -49,6 +49,7 @@ ProcessLayer3Menu:
 			LDA #$01
 			STA $9D
 			STA $13FB|!addr		;>Also make player ignore gravity.
+			;NOTE: $13FB also freezes teleportation, preventing a warp until this value is $00.
 		..SkipFreeze
 	.DpadTurbo
 		;This handles when the user holds down the D-pad long enough, will trigger a "repeat key press".
@@ -177,6 +178,12 @@ ProcessLayer3Menu:
 				STA $01								;>$01 = Scroll position (before the change, again, used to check should the options need an update)
 				LDX #$00
 				JSL DPadMoveCursorOnMenu
+				..IfPlayerCancels
+					LDA !Freeram_ControlBackup+1+!CustomL3Menu_WhichControllerDataToCancel
+					AND.b #!CustomL3Menu_ButtonCancel
+					BEQ ..ClampTheScrollPosToBeWhereTheCursorIsAt
+					
+					;asdf (insert code here that closes the menu)
 				..ClampTheScrollPosToBeWhereTheCursorIsAt
 					;We have to treat the positons here as if they're 16-bit so that we can have more than 127 possible options without
 					;potential glitches as well as when the cursor wraps the menu.
@@ -231,7 +238,7 @@ ProcessLayer3Menu:
 					LDA !Freeram_CustomL3Menu_CursorPos
 					TAX
 					LDA !Freeram_CustomL3Menu_MenuUptionStates,x
-					BEQ ...Enabled
+					BNE ...Enabled
 					
 					...Disabled
 						LDA #!CustomL3Menu_SoundEffectNumber_Rejected

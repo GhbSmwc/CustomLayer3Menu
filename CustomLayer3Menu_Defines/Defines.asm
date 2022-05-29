@@ -25,6 +25,24 @@ if defined("sa1") == 0
 	endif
 endif
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; Checks the current LM version, if it is bigger or equal to <version> it will set <define> to 1, other 0
+; Also sets !lm_version to the last used version number. e.g. 1.52 would return 152 (dec)
+;
+;Don't touch unless you know what you're doing. This is needed for the specific-screen teleport menu
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+if defined("EXLEVEL") == 0
+	macro assert_lm_version(version, define)
+		!lm_version #= ((read1($0FF0B4)-'0')*100)+((read1($0FF0B6)-'0')*10)+(read1($0FF0B7)-'0')
+		if !lm_version >= <version>
+			!<define> = 1
+		else
+			!<define> = 0
+		endif
+	endmacro
+	
+	%assert_lm_version(257, "EXLEVEL") ; Ex level support
+endif
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;Freeram
 ;
 ;NOTE: Some of SMW's RAM are not cleared and may be arbitrary values when specifying what RAM to use, which may cause glitches.
@@ -165,19 +183,17 @@ endif
   ;^[1 byte] This is the number of displayed options, minus 1. Used for scrolling menu displays if there are more options than displayed.
   
  !Freeram_CustomL3Menu_MenuUptionStates = $7F0000
-  ;^[Number_of_bytes = Highest_number_of_options_in_game] Menu option states, each byte is each option in the menu in the same order
-  ; (first byte corresponds to the first option, 2nd on 2nd and so on). The number of bytes taken here is the highest number of options
-  ; in your entire game.
+  ;^[Number_of_bytes = Highest_number_of_options_in_game] Menu option states and behavior, each byte is for each option in the menu in the
+  ; same order (first byte corresponds to the first option, 2nd on 2nd and so on). The number of bytes taken here is the highest number of
+  ; options in your entire game.
   ;
   ; For example, if you have 3 menus, one with 5, another with 3, and another with 10, then 10 bytes here is to be considered.
   ;
-  ; This is useful for things like certain options will be unlocked later in the game.
-  ; The values in each bytes as follows, note that they don't do additional things and are just for SFX and display, for actual
-  ; doing something, that is something you code yourself using this RAM to perform certain things.
-  ; -$00 = Enabled (plays the coin sound effect and displays the option explicitly)
-  ; -$01 = Disabled, plays the incorrect sound and shows the option explicitly but colored red to indicate it
-  ; -$02 = Disabled, same as above but displays "???" marking it "unknown"
-  ;        Be careful not to have all options set to this value else when moving the cursor
+  ; These define the behavior to perform certain actions depending on its value, but the provided code in "Uberasm_tool_files/library/CustomLayer3Menu.asm"
+  ; merely plays incorrect/confirmation sound:
+  ;  -$00 = Play incorrect sound (use this for options that are locked)
+  ;  -$01 to $FF = Play confirm sound (the user selections an option and it gets accepted)
+  ; You have to write the code that displays and behave. See example in "Uberasm_tool_files/level/LevelWarpMenu.asm"
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;Scratch RAM
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
