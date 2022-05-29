@@ -218,6 +218,29 @@ ProcessLayer3Menu:
 					...WriteScrollPos
 						STA !Freeram_CustomL3Menu_MenuScrollPos
 					...ScrollDone
+				..ConfirmAndCheckMenuState
+					LDA !Freeram_ControlBackup+1+!CustomL3Menu_WhichControllerDataToConfirm
+					AND.b #!CustomL3Menu_ButtonConfirm
+					BNE ...Confirm
+					LDA !Freeram_ControlBackup+1+!CustomL3Menu_WhichControllerDataToConfirm2
+					AND.b #!CustomL3Menu_ButtonConfirm2
+					BNE ...Confirm
+					BRA ...Done
+					
+					...Confirm
+					LDA !Freeram_CustomL3Menu_CursorPos
+					TAX
+					LDA !Freeram_CustomL3Menu_MenuUptionStates,x
+					BEQ ...Enabled
+					
+					...Disabled
+						LDA #!CustomL3Menu_SoundEffectNumber_Rejected
+						STA !CustomL3Menu_SoundEffectPort_Rejected
+						BRA ...Done
+					...Enabled
+						LDA #!CustomL3Menu_SoundEffectNumber_Confirm
+						STA !CustomL3Menu_SoundEffectPort_Confirm
+					...Done
 				..ChangeDetection
 					...Cursor
 						LDX #$00
@@ -303,6 +326,8 @@ ProcessLayer3Menu:
 							STA.l $7F837D+4+1,x				;/
 							JSL FinishStripe
 						....CursorWriteDone
+					...Options
+						
 			.Done
 			PLB					;>Restore bank
 			RTL

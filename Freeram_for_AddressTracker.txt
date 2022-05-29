@@ -16,3 +16,4 @@ UI	!Freeram_CustomL3Menu_DpadHoldTimer	1	-	-
 UI	!Freeram_CustomL3Menu_DpadPulser	1	-	-
 UI	!Freeram_CustomL3Menu_MenuScrollPos	1	-	-
 UI	!Freeram_CustomL3Menu_NumberOfDisplayedOptions	1	-	-
+UI	!Freeram_CustomL3Menu_MenuUptionState	50	-	-

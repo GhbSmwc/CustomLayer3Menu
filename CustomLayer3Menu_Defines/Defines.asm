@@ -1,3 +1,7 @@
+;NOTE: By using default RAMs here, you are required to use patches that frees up RAM
+;as some of the freeram are table-based and could potentially take up a ton of bytes.
+;-Free up RAM $7F:8000: https://www.smwcentral.net/?p=section&a=details&id=24054
+;-Free $7F0000 (OW Event Restore): https://www.smwcentral.net/?p=section&a=details&id=19580
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;SA1 detector:
 ;Do not change anything here unless you know what are you doing.
@@ -63,7 +67,8 @@ endif
   ;  is the number of columns, or how many selections per row.
   
  !Freeram_CustomL3Menu_NumberOfCursorPositions = $61
-  ;^[1 byte] The number of valid cursor positions (number of options) or digits in the passcode, -1.
+  ;^[1 byte] The number of valid cursor positions (or number of options) or digits in the passcode, -1 (a menu with 3 options means
+  ; This data have a value of #$02).
   ; Used for:
   ;
   ; -To prevent the cursor from going past the last item.
@@ -81,29 +86,40 @@ endif
   ; that a code compares it to determine if correct or not.
 
  !Freeram_CustomL3Menu_PasscodeCallBackSubroutine = $0DC3|!addr
-  ;^[4 bytes], this 4-byte of contiguous data contains a JML instruction to execute a code supplied from elsewhere, such as a
-  ; a custom block door. The bytes in this RAM should be:
-  ;  !Freeram_CustomL3Menu_PasscodeCallBackSubroutine+0: 5C ;>This MUST be $5C, which is the JML instruction byte.
-  ;  !Freeram_CustomL3Menu_PasscodeCallBackSubroutine+1: aa ;\These are made-up example address. If this is not
-  ;  !Freeram_CustomL3Menu_PasscodeCallBackSubroutine+2: bb ;|set up correctly, your game will crash or glitch out.
-  ;  !Freeram_CustomL3Menu_PasscodeCallBackSubroutine+3: cc ;/
+  ;^[4 bytes], this 4-byte of contiguous data:
   ;
-  ; This is being called via a JSL in the UI code in "Uberasm_tool_files/library/CustomLayer3Menu.asm" ("JSL !Freeram_CustomL3Menu_PasscodeCallBackSubroutine")
-  ; The input data given is $00 (1 byte) which determines:
-  ;  #$00 = Not confirmed (menu waiting for user to confirm) or when the user canceled. Therefore "not entered"
-  ;  #$01 = Confirmed
-  ; where the $ccbbaa is an address (in little endian) to jump to the supplied code. For example, in a custom block code you
-  ; would do this to setup an address that executes during process of the UI system:
-  ;	REP #$20
-  ;	LDA.w #SuppliedCode					;\[aa bb] -> $xxbbaa (remember, little endian)
-  ;	STA !Freeram_CustomL3Menu_PasscodeCallBackSubroutine+1	;/
-  ;	SEP #$20
-  ;	LDA.b #SuppliedCode>>16					;\[cc] -> $ccbbaa
-  ;	STA !Freeram_CustomL3Menu_PasscodeCallBackSubroutine+3	;/
-  ;	RTL
-  ;	SuppliedCode:
-  ;	;This code here will not be executed from the custom block, rather from CustomLayer3Menu.asm.
-  ;	;RTL	;>This MUST end with an RTL because of the aforementioned "JSL !Freeram_CustomL3Menu_PasscodeCallBackSubroutine"
+  ;-During a passcode UI, it contains a JML instruction (4 bytes) to execute when the user confirms or cancel) a code supplied
+  ; from elsewhere, such as a a custom block door. The bytes in this RAM
+  ; should be:
+  ;  !Freeram_CustomL3Menu_PasscodeCallBackSubroutine+0: 5C ;>This is automatically set to $5C, which is the JML instruction byte.
+  ;  !Freeram_CustomL3Menu_PasscodeCallBackSubroutine+1: aa ;\These are made-up example of a 24-bit address. If this is not
+  ;  !Freeram_CustomL3Menu_PasscodeCallBackSubroutine+2: bb ;|set up correctly, your game will crash or glitch out. Remember
+  ;  !Freeram_CustomL3Menu_PasscodeCallBackSubroutine+3: cc ;/little endian!
+  ;
+  ;  This is called from "Uberasm_tool_files/library/CustomLayer3Menu.asm" ("JSL !Freeram_CustomL3Menu_PasscodeCallBackSubroutine")
+  ;  The input data given is $00 (1 byte) which determines:
+  ;   #$00 = Not confirmed (menu waiting for user to confirm) or when the user canceled. Therefore "not entered"
+  ;   #$01 = Confirmed
+  ;  where the $ccbbaa is an address (in little endian) to jump to the supplied code. For example, in a custom block code you
+  ;  would do this to setup an address that executes during process of the UI system:
+  ;   REP #$20
+  ;   LDA.w #SuppliedCode					;\[aa bb] -> $xxbbaa (remember, little endian)
+  ;   STA !Freeram_CustomL3Menu_PasscodeCallBackSubroutine+1	;/
+  ;   SEP #$20
+  ;   LDA.b #SuppliedCode>>16					;\[cc] -> $ccbbaa
+  ;   STA !Freeram_CustomL3Menu_PasscodeCallBackSubroutine+3	;/
+  ;   RTL
+  ;   SuppliedCode:
+  ;   ;This code here will not be executed from the custom block, rather from CustomLayer3Menu.asm.
+  ;   ;RTL	;>This MUST end with an RTL because of the aforementioned "JSL !Freeram_CustomL3Menu_PasscodeCallBackSubroutine"
+  ;-During menu selection, it is the same as above but you have to supply a code that writes the options. $07 Contains
+  ; info that determines should the stripe image tiles be updated as to minimize the risk of black bars flickering:
+  ;  %000000SC
+  ;  
+  ;  C = Cursor position change in relation to the scroll position. When just the cursor moves and no scrolling occurred,
+  ;      this bit is set.
+  ;  S = Scrolled flag. When menu scrolling occurred (move cursor upwards when it is at the top or downwards at the bottom),
+  ;      this bit is set.
 
  !Freeram_ControlBackup = $0F3A|!addr
   ;^[4 bytes] a copy of $15-$18 (in the same order). This is so that when in UI mode,
@@ -147,6 +163,21 @@ endif
 
  !Freeram_CustomL3Menu_NumberOfDisplayedOptions = $7C
   ;^[1 byte] This is the number of displayed options, minus 1. Used for scrolling menu displays if there are more options than displayed.
+  
+ !Freeram_CustomL3Menu_MenuUptionStates = $7F0000
+  ;^[Number_of_bytes = Highest_number_of_options_in_game] Menu option states, each byte is each option in the menu in the same order
+  ; (first byte corresponds to the first option, 2nd on 2nd and so on). The number of bytes taken here is the highest number of options
+  ; in your entire game.
+  ;
+  ; For example, if you have 3 menus, one with 5, another with 3, and another with 10, then 10 bytes here is to be considered.
+  ;
+  ; This is useful for things like certain options will be unlocked later in the game.
+  ; The values in each bytes as follows, note that they don't do additional things and are just for SFX and display, for actual
+  ; doing something, that is something you code yourself using this RAM to perform certain things.
+  ; -$00 = Enabled (plays the coin sound effect and displays the option explicitly)
+  ; -$01 = Disabled, plays the incorrect sound and shows the option explicitly but colored red to indicate it
+  ; -$02 = Disabled, same as above but displays "???" marking it "unknown"
+  ;        Be careful not to have all options set to this value else when moving the cursor
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;Scratch RAM
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -188,7 +219,7 @@ endif
    !CustomL3Menu_SoundEffectPort_Cancel = $1DF9|!addr
    !CustomL3Menu_SoundEffectNumber_Cancel = $01
 
-  ;Sound effect when the user selects a menu option that is locked or enters the incorrect passcode
+  ;Sound effect when the user selects a menu option that is locked or enters the incorrect passcode or confirms on a disabled options
    !CustomL3Menu_SoundEffectPort_Rejected = $1DFC|!addr
    !CustomL3Menu_SoundEffectNumber_Rejected = $2A
 
