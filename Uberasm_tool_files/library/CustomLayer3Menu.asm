@@ -392,11 +392,30 @@ ProcessLayer3Menu:
 							STZ $05								;/
 							LDY #$00
 							.....WriteOptionsLoopEachOption
-								CPY.b !Freeram_CustomL3Menu_NumberOfDisplayedOptions
-								BEQ +
-								BCS ......Done
-								
+								CPY !Freeram_CustomL3Menu_NumberOfDisplayedOptions	;\Loop counter check if all options have been written
+								BEQ +							;|
+								BCS ......Done						;/
 								+
+								......CheckIfDrawingBeyondLastOption
+									TYA							;>A: Current option in menu to draw, relative to scroll pos
+									CLC							;\$0B-$0C: the position of the option last displayed, not relative
+									ADC !Freeram_CustomL3Menu_MenuScrollPos			;|to scroll, but from the entire menu.
+									STA $0B							;|
+									LDA #$00						;|
+									ADC #$00						;|
+									STA $0C							;/
+									LDA !Freeram_CustomL3Menu_NumberOfCursorPositions	;\$0D-$0E: Last option, 16-bit to allow 256 options.
+									STA $0D							;|
+									STZ $0E							;/
+									REP #$20
+									LDA $0B
+									CMP $0D
+									SEP #$20
+									BEQ ......SafeToWrite
+									BCC ......SafeToWrite
+								......BeyondLastOption
+									BRA ......Done
+								......SafeToWrite
 								JSL SetupStripeHeaderAndIndex	;>X = stripe index (XY 16-bit)
 								PHX
 								PHY
