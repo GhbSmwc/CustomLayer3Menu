@@ -130,14 +130,8 @@ endif
   ;   SuppliedCode:
   ;   ;This code here will not be executed from the custom block, rather from CustomLayer3Menu.asm.
   ;   ;RTL	;>This MUST end with an RTL because of the aforementioned "JSL !Freeram_CustomL3Menu_PasscodeCallBackSubroutine"
-  ;-During menu selection, it is the same as above but you have to supply a code that writes the options. $07 Contains
-  ; info that determines should the stripe image tiles be updated as to minimize the risk of black bars flickering:
-  ;  %000000SC
-  ;  
-  ;  C = Cursor position change in relation to the scroll position. When just the cursor moves and no scrolling occurred,
-  ;      this bit is set.
-  ;  S = Scrolled flag. When menu scrolling occurred (move cursor upwards when it is at the top or downwards at the bottom),
-  ;      this bit is set.
+  ;-During menu selection, it is 24-bit address (3 bytes, again little endian) representing the location of the table tiles, row-major.
+  ; Each option have a fixed number of characters to write based on what you set on !CustomL3Menu_MenuDisplay_OptionCharLength.
 
  !Freeram_ControlBackup = $0F3A|!addr
   ;^[4 bytes] a copy of $15-$18 (in the same order). This is so that when in UI mode,
@@ -266,9 +260,17 @@ endif
   ;Number input
    !CustomL3Menu_NumberInput_XPos = 3 ;>31 ($1F) = right edge of screen
    !CustomL3Menu_NumberInput_YPos = 25 ;>27 ($1B) = bottom of screen
-  ;Menu position
+  ;Menu
    !CustomL3Menu_MenuDisplay_XPos = 3
    !CustomL3Menu_MenuDisplay_YPos = 6
+   
+   !CustomL3Menu_MenuDisplay_OptionCharLength = 9
+    ;^The number of characters, including spaces for each option. NOTE: Alll strings must be this length
+    ; so that when the menu scrolls, leftover tiles won't appear when a string gets replaced with a shorter
+    ; string.
+    
+   !CustomL3Menu_MenuDisplay_Properties = %00111000
+    ;^The YXPCCCTT of each options in the menu
  ;Other
   !CustomL3Menu_MaxNumberOfDigitsInEntireGame = 8
    ;^The most number of digits passcode in your entire game.

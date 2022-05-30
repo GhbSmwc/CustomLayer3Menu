@@ -1,3 +1,7 @@
+
+incsrc "../CustomLayer3Menu_Defines/Defines.asm"
+table "../CustomLayer3Menu_Defines/ascii.txt"
+
 init:
 	.MenuSetup
 		LDA.b #(..MenuOptionActBehavior_End-..MenuOptionActBehavior)-1	;\Number of options (-1)
@@ -13,7 +17,13 @@ init:
 		LDA ..MenuOptionActBehavior,x
 		STA !Freeram_CustomL3Menu_MenuUptionStates,x
 		DEX
-		BPL -
+		BPL -								;/
+		LDA.b #OptionTileTable						;\Setup the area to jump to to write our menu options.
+		STA !Freeram_CustomL3Menu_PasscodeCallBackSubroutine		;|
+		LDA.b #OptionTileTable>>8					;|
+		STA !Freeram_CustomL3Menu_PasscodeCallBackSubroutine+1		;|
+		LDA.b #OptionTileTable>>16					;|
+		STA !Freeram_CustomL3Menu_PasscodeCallBackSubroutine+2		;/
 		RTL
 		..MenuOptionActBehavior:
 			;These are each option's behavior to write to !Freeram_CustomL3Menu_MenuUptionStates.
@@ -27,7 +37,6 @@ init:
 			db $00	;>When !Freeram_CustomL3Menu_CursorPos == $07
 			db $00	;>When !Freeram_CustomL3Menu_CursorPos == $08
 			db $00	;>When !Freeram_CustomL3Menu_CursorPos == $09
-			db $00	;>When !Freeram_CustomL3Menu_CursorPos == $0A
 			...End
 main:
 	.MenuBehavior
@@ -64,11 +73,17 @@ main:
 			;number gets decremented by 1 (another table will be used and because 0-based indexing), use
 			;that number as an index (y register) to grab a value from a table "....TeleportScreenToUse"
 			;which in turn sets up what screen exit to use during teleporting.
-			dw ...Nothing			;>!Freeram_CustomL3Menu_MenuUptionStates,x = $00  (X = $00)
-			dw ...Teleport			;>!Freeram_CustomL3Menu_MenuUptionStates,x = $01  (X = $02)
-			dw ...Teleport			;>!Freeram_CustomL3Menu_MenuUptionStates,x = $02  (X = $04)
-			dw ...Teleport			;>!Freeram_CustomL3Menu_MenuUptionStates,x = $03  (X = $06)
-			dw ...Teleport			;>!Freeram_CustomL3Menu_MenuUptionStates,x = $04  (X = $08)
+			dw ...Nothing			;>!Freeram_CustomL3Menu_MenuUptionStates,x = $00 (X = $00)
+			dw ...Teleport			;>!Freeram_CustomL3Menu_MenuUptionStates,x = $01 (X = $02)
+			dw ...Teleport			;>!Freeram_CustomL3Menu_MenuUptionStates,x = $02 (X = $04)
+			dw ...Teleport			;>!Freeram_CustomL3Menu_MenuUptionStates,x = $03 (X = $06)
+			dw ...Teleport			;>!Freeram_CustomL3Menu_MenuUptionStates,x = $04 (X = $08)
+			dw ...Teleport			;>!Freeram_CustomL3Menu_MenuUptionStates,x = $05 (X = $0A)
+			dw ...Teleport			;>!Freeram_CustomL3Menu_MenuUptionStates,x = $06 (X = $0C)
+			dw ...Teleport			;>!Freeram_CustomL3Menu_MenuUptionStates,x = $07 (X = $0E)
+			dw ...Teleport			;>!Freeram_CustomL3Menu_MenuUptionStates,x = $08 (X = $10)
+			dw ...Teleport			;>!Freeram_CustomL3Menu_MenuUptionStates,x = $09 (X = $12)
+			dw ...Teleport			;>!Freeram_CustomL3Menu_MenuUptionStates,x = $0A (X = $14)
 		
 			...Nothing
 				RTL
@@ -135,3 +150,26 @@ main:
 					db $01
 					db $02
 					db $03
+					db $04
+					db $05
+					db $06
+					db $07
+					db $08
+					db $09
+					db $0A
+	OptionTileTable:
+		;There MUST be exactly !CustomL3Menu_MenuDisplay_OptionCharLength number of characters
+		;in each string here. So if there is a string that's shorter, pad spaces at the end
+		;to match it. Also make sure the number of strings matches how many options that exists,
+		;else it writes garbage.
+		db "SCREEN 01"
+		db "SCREEN 02"
+		db "SCREEN 03"
+		db "SCREEN 04"
+		db "SCREEN 05"
+		db "SCREEN 06"
+		db "SCREEN 07"
+		db "SCREEN 08"
+		db "SCREEN 09"
+		db "SCREEN 0A"
+	RTL

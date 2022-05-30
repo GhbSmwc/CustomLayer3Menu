@@ -10,6 +10,7 @@
 ;-FinishStripe
 
 	incsrc "../CustomLayer3Menu_Defines/Defines.asm"
+	table "../CustomLayer3Menu_Defines/ascii.txt"
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;Process layer 3 menu
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -263,7 +264,7 @@ ProcessLayer3Menu:
 					...Scroll
 						LDX #$00
 						LDA !Freeram_CustomL3Menu_MenuScrollPos
-						CMP $07
+						CMP $01
 						BEQ ....NoScroll
 						....DidScroll
 							INX
@@ -316,8 +317,6 @@ ProcessLayer3Menu:
 							STA.l $7F837D+4+1,x				;/
 							JSL FinishStripe
 						....WriteCurrentCursorPos
-							LDA #$01					;\Make it so that it forcibly draws on initial menu appearing and not every frame besides the user moving cursor.
-							STA !Freeram_CustomL3Menu_WritePhase		;/
 							LDA !Freeram_CustomL3Menu_CursorPos		;\Y position
 							SEC						;|
 							SBC !Freeram_CustomL3Menu_MenuScrollPos		;|>A = cursor position relative to scroll, currently
@@ -334,8 +333,117 @@ ProcessLayer3Menu:
 							JSL FinishStripe
 						....CursorWriteDone
 					...Options
+						LDA !Freeram_CustomL3Menu_WritePhase			;\Draw options (so when the menu appears, and before the player moves the cusor, the options shows up)
+						BEQ ....WriteOptions					;/
+						LDA $07
+						AND.b #%00000010
+						;BEQ ....WriteOptionsDone
+						BNE +
+						JMP ....WriteOptionsDone
+						+
 						
+						....WriteOptions
+							;To find a byte in the character table that will be the first displayed option
+							;we do this:
+							;
+							; AddressOfShownString = (!Freeram_CustomL3Menu_MenuScrollPos * !CustomL3Menu_MenuDisplay_OptionCharLength) + !Freeram_CustomL3Menu_PasscodeCallBackSubroutine
+							;
+							; !Freeram_CustomL3Menu_MenuScrollPos contains the position of how much the menu scrolled
+							; !!CustomL3Menu_MenuDisplay_OptionCharLength is the number of characters in each option
+							; !Freeram_CustomL3Menu_PasscodeCallBackSubroutine contains the starting address of the table
+							if !sa1 == 0
+								LDA !Freeram_CustomL3Menu_MenuScrollPos
+								STA $4202
+								LDA #!CustomL3Menu_MenuDisplay_OptionCharLength
+								STA $4203
+								NOP #4						;>Wait 8 cycles
+								REP #$21
+								LDA $4216
+							else
+								STZ $2250				;>Multiply mode
+								LDA !Freeram_CustomL3Menu_MenuScrollPos
+								STA $2251
+								STZ $2252
+								LDA #!CustomL3Menu_MenuDisplay_OptionCharLength
+								STA $2253
+								STZ $2254
+								NOP					;\Wait 5 cycles
+								BRA $00					;/
+								REP #$21
+								LDA $2306
+							endif
+							ADC.w !Freeram_CustomL3Menu_PasscodeCallBackSubroutine		;\$08-$0A: The first visible option being displayed at the first character of that option
+							STA $08								;|
+							SEP #$20							;|
+							LDA.b !Freeram_CustomL3Menu_PasscodeCallBackSubroutine>>16	;|
+							STA $0A								;/
+							LDA.b #!CustomL3Menu_MenuDisplay_XPos+2				;\X position
+							STA $00								;/
+							LDA.b #!CustomL3Menu_MenuDisplay_YPos				;\Y position
+							STA $01								;/
+							LDA #$05							;\Layer
+							STA $02								;/
+							STZ $03								;>Direction and RLE
+							LDA.b #!CustomL3Menu_MenuDisplay_OptionCharLength		;\Number of tiles
+							STA $04								;|
+							STZ $05								;/
+							LDY #$00
+							.....WriteOptionsLoopEachOption
+								CPY.b !Freeram_CustomL3Menu_NumberOfDisplayedOptions
+								BEQ +
+								BCS ......Done
+								
+								+
+								JSL SetupStripeHeaderAndIndex	;>X = stripe index (XY 16-bit)
+								PHX
+								PHY
+								LDY #$0000			;>Y = What character in string
+								......WriteCharactersLoop
+									CPY.w #!CustomL3Menu_MenuDisplay_OptionCharLength
+									BCS .......Done
+									LDA ($08),y
+									STA $7F837D+4,x
+									INX
+									LDA.b #!CustomL3Menu_MenuDisplay_Properties
+									STA $7F837D+4,x
+									.......Next
+										INX
+										INY
+										BRA ......WriteCharactersLoop
+									.......Done
+								PLY
+								PLX
+								LDA $00
+								PHA
+								LDA $01
+								PHA
+								LDA $02
+								PHA
+								JSL FinishStripe
+								PLA
+								STA $02
+								PLA
+								STA $01
+								PLA
+								STA $00
+								......Next
+									REP #$20						;\Next option to write
+									LDA $08							;|
+									CLC							;|
+									ADC.w #!CustomL3Menu_MenuDisplay_OptionCharLength	;|
+									STA $08							;|
+									SEP #$20						;/
+									LDA $01							;\Next Y position
+									CLC							;|
+									ADC #$02						;|
+									STA $01							;/
+									INY							;>Increment loop counter
+									BRA .....WriteOptionsLoopEachOption			;>Go back to the condition
+								......Done
+						....WriteOptionsDone
 			.Done
+			LDA #$01					;\Make it so that it forcibly draws on initial menu appearing and not every frame besides the user moving cursor.
+			STA !Freeram_CustomL3Menu_WritePhase		;/
 			PLB					;>Restore bank
 			RTL
 			.SetupStripeDrawCursor
