@@ -265,12 +265,20 @@ endif
    !CustomL3Menu_MenuDisplay_YPos = 6
    
    !CustomL3Menu_MenuDisplay_OptionCharLength = 9
-    ;^The number of characters, including spaces for each option. NOTE: Alll strings must be this length
+    ;^The number of characters, including spaces for each option. NOTE: All strings must be this length
     ; so that when the menu scrolls, leftover tiles won't appear when a string gets replaced with a shorter
     ; string.
     
    !CustomL3Menu_MenuDisplay_Properties = %00111000
-    ;^The YXPCCCTT of each options in the menu
+    ;^The YXPCCCTT properties of each options in the menu
+    
+   !CustomL3Menu_MenuDisplay_ScrollArrowNumber = $80
+    ;^Tile number of the up/down scroll arrows to indicate if the menu can scroll up or down.
+    ; Note that this must be an upwards arrow, as the code automatically Y-flips it.
+    
+   !CustomL3Menu_MenuDisplay_ScrollArrowProperties = %00101101
+    ;^The YXPCCCTT properties of the scroll arrow. Y bit (bit 7) is automatically set for
+    ; downwards arrow.
  ;Other
   !CustomL3Menu_MaxNumberOfDigitsInEntireGame = 8
    ;^The most number of digits passcode in your entire game.

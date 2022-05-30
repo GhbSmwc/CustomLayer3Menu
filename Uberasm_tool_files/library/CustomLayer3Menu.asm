@@ -165,6 +165,9 @@ ProcessLayer3Menu:
 		MenuSelectionBitwiseMenuScroll:
 			db %00000000
 			db %00000010
+		ShouldArrowAppear:
+			dw $38FC		;>Blank tile when the menu position is at the top or when the menu is at the bottom
+			dw (!CustomL3Menu_MenuDisplay_ScrollArrowProperties<<8)|!CustomL3Menu_MenuDisplay_ScrollArrowNumber
 		MenuSelection:
 			PHB					;>Preserve bank
 			PHK					;\Change bank so that $xxxx,y works correctly
@@ -295,7 +298,7 @@ ProcessLayer3Menu:
 					;Reason to have such an info is we need to only update the tiles if necessary. This is to prevent potential VRAM overflow:
 					;black bars flickering at the top of the screen.
 					...Cursor
-						;DrawCursorPos = (CursorPosRelativeToScroll*2) + #!CustomL3Menu_MenuDisplay_YPos
+						;DrawCursorPos = (CursorPosRelativeToScroll*2) + (#!CustomL3Menu_MenuDisplay_YPos + 1)
 						;
 						;(CursorPos*2) makes it so the cursor jumps up/down by 2 lines since the menu are "double-spaced" line breaks.
 						LDA !Freeram_CustomL3Menu_WritePhase			;\Draw cursor (so when the menu appears, and before the player moves the cusor, the cursor shows up and not only show the options)
@@ -307,9 +310,9 @@ ProcessLayer3Menu:
 							LDA $06						;\Y position
 							ASL						;|
 							CLC						;|
-							ADC #!CustomL3Menu_MenuDisplay_YPos		;|
+							ADC #!CustomL3Menu_MenuDisplay_YPos+1		;|
 							STA $01						;/
-							JSR .SetupStripeDrawCursor
+							JSR .SetupStripeInputs
 							JSL SetupStripeHeaderAndIndex
 							LDA #$FC					;\Tile number
 							STA.l $7F837D+4,x				;/
@@ -322,9 +325,9 @@ ProcessLayer3Menu:
 							SBC !Freeram_CustomL3Menu_MenuScrollPos		;|>A = cursor position relative to scroll, currently
 							ASL						;|
 							CLC						;|
-							ADC #!CustomL3Menu_MenuDisplay_YPos		;|
+							ADC #!CustomL3Menu_MenuDisplay_YPos+1		;|
 							STA $01						;/
-							JSR .SetupStripeDrawCursor
+							JSR .SetupStripeInputs
 							JSL SetupStripeHeaderAndIndex
 							LDA #$2E					;\Tile number
 							STA.l $7F837D+4,x				;/
@@ -335,11 +338,11 @@ ProcessLayer3Menu:
 					...Options
 						LDA !Freeram_CustomL3Menu_WritePhase			;\Draw options (so when the menu appears, and before the player moves the cusor, the options shows up)
 						BEQ ....WriteOptions					;/
-						LDA $07
-						AND.b #%00000010
-						;BEQ ....WriteOptionsDone
-						BNE +
-						JMP ....WriteOptionsDone
+						LDA $07							;\If there is no need to update the options due to a no-scroll
+						AND.b #%00000010					;|don't update.
+						;BEQ ....WriteOptionsDone				;|
+						BNE +							;|
+						JMP ....WriteOptionsDone				;/
 						+
 						
 						....WriteOptions
@@ -379,7 +382,7 @@ ProcessLayer3Menu:
 							STA $0A								;/
 							LDA.b #!CustomL3Menu_MenuDisplay_XPos+2				;\X position
 							STA $00								;/
-							LDA.b #!CustomL3Menu_MenuDisplay_YPos				;\Y position
+							LDA.b #!CustomL3Menu_MenuDisplay_YPos+1				;\Y position
 							STA $01								;/
 							LDA #$05							;\Layer
 							STA $02								;/
@@ -413,19 +416,19 @@ ProcessLayer3Menu:
 									.......Done
 								PLY
 								PLX
-								LDA $00
-								PHA
-								LDA $01
-								PHA
-								LDA $02
-								PHA
+								LDA $00							;\Preserve $00-$02 since the finish stripe routine
+								PHA							;|clobbers it
+								LDA $01							;|
+								PHA							;|
+								LDA $02							;|
+								PHA							;/
 								JSL FinishStripe
-								PLA
-								STA $02
-								PLA
-								STA $01
-								PLA
-								STA $00
+								PLA							;\Restore $00-$02
+								STA $02							;|
+								PLA							;|
+								STA $01							;|
+								PLA							;|
+								STA $00							;/
 								......Next
 									REP #$20						;\Next option to write
 									LDA $08							;|
@@ -440,13 +443,56 @@ ProcessLayer3Menu:
 									INY							;>Increment loop counter
 									BRA .....WriteOptionsLoopEachOption			;>Go back to the condition
 								......Done
+						....DisplayScrollArrows
+							;When the menu can be scrolled up or down, display so that the user is informed there is more options.
+							.....CheckScrollUp
+								JSR .SetupStripeInputs			;>X, layer, D/RLE, and 1 tile
+								LDA.b #!CustomL3Menu_MenuDisplay_YPos	;\Y position
+								STA $01					;/
+								JSL SetupStripeHeaderAndIndex
+								LDY #$0000
+								LDA !Freeram_CustomL3Menu_MenuScrollPos
+								BEQ ......NoUpArrow
+								......UpArrow
+									INY #2
+								......NoUpArrow
+								REP #$20
+								LDA ShouldArrowAppear,y
+								STA $7F837D+4,x
+								SEP #$20
+								JSL FinishStripe
+							.....CheckScrollDown
+								JSR .SetupStripeInputs			;>X, layer, D/RLE, and 1 tile
+								;Down_arrow_position = ((!Freeram_CustomL3Menu_NumberOfDisplayedOptions+1) * 2) + !CustomL3Menu_MenuDisplay_YPos
+								LDA !Freeram_CustomL3Menu_NumberOfDisplayedOptions	;\Y position
+								INC							;|
+								ASL							;|
+								CLC							;|
+								ADC.b #!CustomL3Menu_MenuDisplay_YPos			;|
+								STA $01							;/
+								JSL SetupStripeHeaderAndIndex
+								LDY #$0000
+								LDA !Freeram_CustomL3Menu_MenuScrollPos			;\Last displayed option
+								CLC							;|
+								ADC !Freeram_CustomL3Menu_NumberOfDisplayedOptions	;/
+								CMP !Freeram_CustomL3Menu_NumberOfCursorPositions	;>Last option
+								BCS ......NoDownArrow					;>If last displayed is at or beyond (in case if there are fewer options than the maximum number of options shown) last option, no arrows
+								......DownArrow
+									INY #2
+								......NoDownArrow
+								REP #$20
+								LDA ShouldArrowAppear,y
+								ORA.w #%1000000000000000
+								STA $7F837D+4,x
+								SEP #$20
+								JSL FinishStripe
 						....WriteOptionsDone
 			.Done
 			LDA #$01					;\Make it so that it forcibly draws on initial menu appearing and not every frame besides the user moving cursor.
 			STA !Freeram_CustomL3Menu_WritePhase		;/
 			PLB					;>Restore bank
 			RTL
-			.SetupStripeDrawCursor
+			.SetupStripeInputs
 				LDA.b #!CustomL3Menu_MenuDisplay_XPos		;\X position
 				STA $00						;/
 				LDA #$05					;\Layer 3
