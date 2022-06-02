@@ -176,18 +176,12 @@ endif
  !Freeram_CustomL3Menu_NumberOfDisplayedOptions = $7C
   ;^[1 byte] This is the number of displayed options, minus 1. Used for scrolling menu displays if there are more options than displayed.
   
- !Freeram_CustomL3Menu_MenuUptionStates = $7F0000
-  ;^[Number_of_bytes = Highest_number_of_options_in_game] Menu option states and behavior, each byte is for each option in the menu in the
+ !Freeram_CustomL3Menu_MenuUptionID = $7F0000
+  ;^[Number_of_bytes = Highest_number_of_options_in_game] Menu option ID, each byte is for each option in the menu in the
   ; same order (first byte corresponds to the first option, 2nd on 2nd and so on). The number of bytes taken here is the highest number of
   ; options in your entire game.
   ;
-  ; For example, if you have 3 menus, one with 5, another with 3, and another with 10, then 10 bytes here is to be considered.
-  ;
-  ; These define the behavior to perform certain actions depending on its value, but the provided code in "Uberasm_tool_files/library/CustomLayer3Menu.asm"
-  ; merely plays incorrect/confirmation sound:
-  ;  -$00 = Play incorrect sound (use this for options that are locked)
-  ;  -$01 to $FF = Play confirm sound (the user selections an option and it gets accepted)
-  ; You have to write the code that displays and behave. See example in "Uberasm_tool_files/level/LevelWarpMenu.asm"
+  ; The values in each byte represents what option it is, and is used for indexing what string of text to use.
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;Scratch RAM
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

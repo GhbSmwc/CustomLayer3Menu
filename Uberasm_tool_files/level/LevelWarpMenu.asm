@@ -15,7 +15,7 @@ init:
 		LDX.b #(..MenuOptionActBehavior_End-..MenuOptionActBehavior)-1	;\A loop that sets the menu option states
 		-
 		LDA ..MenuOptionActBehavior,x
-		STA !Freeram_CustomL3Menu_MenuUptionStates,x
+		STA !Freeram_CustomL3Menu_MenuUptionID,x
 		DEX
 		BPL -								;/
 		LDA.b #OptionTileTable						;\Setup the area to jump to to write our menu options.
@@ -26,7 +26,7 @@ init:
 		STA !Freeram_CustomL3Menu_PasscodeCallBackSubroutine+2		;/
 		RTL
 		..MenuOptionActBehavior:
-			;These are each option's behavior to write to !Freeram_CustomL3Menu_MenuUptionStates.
+			;These are each option's behavior to write to !Freeram_CustomL3Menu_MenuUptionID.
 			db $01	;>When !Freeram_CustomL3Menu_CursorPos == $00 \Perform certain action.
 			db $02	;>When !Freeram_CustomL3Menu_CursorPos == $01 |
 			db $03	;>When !Freeram_CustomL3Menu_CursorPos == $02 /
@@ -55,7 +55,7 @@ main:
 		..Confirm
 		LDA !Freeram_CustomL3Menu_CursorPos		;\X index = What menu option is highlighted
 		TAX						;/
-		LDA !Freeram_CustomL3Menu_MenuUptionStates,x	;>A = the state of the highlighted option.
+		LDA !Freeram_CustomL3Menu_MenuUptionID,x	;>A = the state of the highlighted option.
 		ASL
 		TAX
 		BCS +
@@ -64,26 +64,26 @@ main:
 		JMP.w (..MenuOptionBehavior+128,x)
 	
 		..MenuOptionBehavior:
-			;Now here, Each item in this list is each value for !Freeram_CustomL3Menu_MenuUptionStates.
+			;Now here, Each item in this list is each value for !Freeram_CustomL3Menu_MenuUptionID.
 			;Therefore causes a jump in the code to run different codes/behaviors based on what's stored
-			;in !Freeram_CustomL3Menu_MenuUptionStates.
+			;in !Freeram_CustomL3Menu_MenuUptionID.
 			;
 			;Assuming you didn't edit this ASM file, choosing the first item in the menu will pick behavior
 			;$01, which when getting to here, will use the second item in this list. This behavior
 			;number gets decremented by 1 (another table will be used and because 0-based indexing), use
 			;that number as an index (y register) to grab a value from a table "....TeleportScreenToUse"
 			;which in turn sets up what screen exit to use during teleporting.
-			dw ...Nothing			;>!Freeram_CustomL3Menu_MenuUptionStates,x = $00 (X = $00)
-			dw ...Teleport			;>!Freeram_CustomL3Menu_MenuUptionStates,x = $01 (X = $02)
-			dw ...Teleport			;>!Freeram_CustomL3Menu_MenuUptionStates,x = $02 (X = $04)
-			dw ...Teleport			;>!Freeram_CustomL3Menu_MenuUptionStates,x = $03 (X = $06)
-			dw ...Teleport			;>!Freeram_CustomL3Menu_MenuUptionStates,x = $04 (X = $08)
-			dw ...Teleport			;>!Freeram_CustomL3Menu_MenuUptionStates,x = $05 (X = $0A)
-			dw ...Teleport			;>!Freeram_CustomL3Menu_MenuUptionStates,x = $06 (X = $0C)
-			dw ...Teleport			;>!Freeram_CustomL3Menu_MenuUptionStates,x = $07 (X = $0E)
-			dw ...Teleport			;>!Freeram_CustomL3Menu_MenuUptionStates,x = $08 (X = $10)
-			dw ...Teleport			;>!Freeram_CustomL3Menu_MenuUptionStates,x = $09 (X = $12)
-			dw ...Teleport			;>!Freeram_CustomL3Menu_MenuUptionStates,x = $0A (X = $14)
+			dw ...Nothing			;>!Freeram_CustomL3Menu_MenuUptionID,x = $00 (X = $00)
+			dw ...Teleport			;>!Freeram_CustomL3Menu_MenuUptionID,x = $01 (X = $02)
+			dw ...Teleport			;>!Freeram_CustomL3Menu_MenuUptionID,x = $02 (X = $04)
+			dw ...Teleport			;>!Freeram_CustomL3Menu_MenuUptionID,x = $03 (X = $06)
+			dw ...Teleport			;>!Freeram_CustomL3Menu_MenuUptionID,x = $04 (X = $08)
+			dw ...Teleport			;>!Freeram_CustomL3Menu_MenuUptionID,x = $05 (X = $0A)
+			dw ...Teleport			;>!Freeram_CustomL3Menu_MenuUptionID,x = $06 (X = $0C)
+			dw ...Teleport			;>!Freeram_CustomL3Menu_MenuUptionID,x = $07 (X = $0E)
+			dw ...Teleport			;>!Freeram_CustomL3Menu_MenuUptionID,x = $08 (X = $10)
+			dw ...Teleport			;>!Freeram_CustomL3Menu_MenuUptionID,x = $09 (X = $12)
+			dw ...Teleport			;>!Freeram_CustomL3Menu_MenuUptionID,x = $0A (X = $14)
 		
 			...Nothing
 				RTL
@@ -110,7 +110,7 @@ main:
 				STX $06						;>$06: Current screen
 				LDA !Freeram_CustomL3Menu_CursorPos		;\X index = What menu option is highlighted
 				TAX						;/
-				LDA !Freeram_CustomL3Menu_MenuUptionStates,x	;>A = the state of the highlighted option.
+				LDA !Freeram_CustomL3Menu_MenuUptionID,x	;>A = the state of the highlighted option.
 				DEC
 				TAY						;>Y = index of what screen to use
 				
