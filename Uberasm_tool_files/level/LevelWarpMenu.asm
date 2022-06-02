@@ -27,16 +27,16 @@ init:
 		RTL
 		..MenuOptionActBehavior:
 			;These are each option's behavior to write to !Freeram_CustomL3Menu_MenuUptionID.
-			db $00	;>When !Freeram_CustomL3Menu_CursorPos == $00
-			db $01	;>When !Freeram_CustomL3Menu_CursorPos == $01
-			db $02	;>When !Freeram_CustomL3Menu_CursorPos == $02
-			db $03	;>When !Freeram_CustomL3Menu_CursorPos == $03
-			db $04	;>When !Freeram_CustomL3Menu_CursorPos == $04
-			db $05	;>When !Freeram_CustomL3Menu_CursorPos == $05
-			db $06	;>When !Freeram_CustomL3Menu_CursorPos == $06
-			db $07	;>When !Freeram_CustomL3Menu_CursorPos == $07
-			db $08	;>When !Freeram_CustomL3Menu_CursorPos == $08
-			db $09	;>When !Freeram_CustomL3Menu_CursorPos == $09
+			db $00	;>When !Freeram_CustomL3Menu_CursorPos == $00, use this value for !Freeram_CustomL3Menu_MenuUptionID,x
+			db $01	;>When !Freeram_CustomL3Menu_CursorPos == $01, use this value for !Freeram_CustomL3Menu_MenuUptionID,x
+			db $02	;>When !Freeram_CustomL3Menu_CursorPos == $02, use this value for !Freeram_CustomL3Menu_MenuUptionID,x
+			db $03	;>When !Freeram_CustomL3Menu_CursorPos == $03, use this value for !Freeram_CustomL3Menu_MenuUptionID,x
+			db $04	;>When !Freeram_CustomL3Menu_CursorPos == $04, use this value for !Freeram_CustomL3Menu_MenuUptionID,x
+			db $05	;>When !Freeram_CustomL3Menu_CursorPos == $05, use this value for !Freeram_CustomL3Menu_MenuUptionID,x
+			db $06	;>When !Freeram_CustomL3Menu_CursorPos == $06, use this value for !Freeram_CustomL3Menu_MenuUptionID,x
+			db $07	;>When !Freeram_CustomL3Menu_CursorPos == $07, use this value for !Freeram_CustomL3Menu_MenuUptionID,x
+			db $08	;>When !Freeram_CustomL3Menu_CursorPos == $08, use this value for !Freeram_CustomL3Menu_MenuUptionID,x
+			db $09	;>When !Freeram_CustomL3Menu_CursorPos == $09, use this value for !Freeram_CustomL3Menu_MenuUptionID,x
 			...End
 main:
 	.MenuBehavior
@@ -157,18 +157,23 @@ main:
 					db $09
 					db $0A
 	OptionTileTable:
+		;String to display based on what value for !Freeram_CustomL3Menu_MenuUptionID.
+		;
 		;There MUST be exactly !CustomL3Menu_MenuDisplay_OptionCharLength number of characters
 		;in each string here. So if there is a string that's shorter, pad spaces at the end
-		;to match it. Also make sure the number of strings matches how many options that exists,
-		;else it writes garbage.
-		db "SCREEN 01"
-		db "SCREEN 02"
-		db "SCREEN 03"
-		db "SCREEN 04"
-		db "SCREEN 05"
-		db "SCREEN 06"
-		db "SCREEN 07"
-		db "SCREEN 08"
-		db "SCREEN 09"
-		db "SCREEN 0A"
+		;to match it. This is so that when a string is being replaced with a shorter one,
+		;will not have leftover tiles from the replaced string.
+		;
+		;Each string here is each value of !Freeram_CustomL3Menu_MenuUptionID with the
+		;first one being $00.
+		db "SCREEN 01" ;>When !Freeram_CustomL3Menu_MenuUptionID,x = $00
+		db "SCREEN 02" ;>When !Freeram_CustomL3Menu_MenuUptionID,x = $01
+		db "SCREEN 03" ;>When !Freeram_CustomL3Menu_MenuUptionID,x = $02
+		db "SCREEN 04" ;>When !Freeram_CustomL3Menu_MenuUptionID,x = $03
+		db "SCREEN 05" ;>When !Freeram_CustomL3Menu_MenuUptionID,x = $04
+		db "SCREEN 06" ;>When !Freeram_CustomL3Menu_MenuUptionID,x = $05
+		db "SCREEN 07" ;>When !Freeram_CustomL3Menu_MenuUptionID,x = $06
+		db "SCREEN 08" ;>When !Freeram_CustomL3Menu_MenuUptionID,x = $07
+		db "SCREEN 09" ;>When !Freeram_CustomL3Menu_MenuUptionID,x = $08
+		db "SCREEN 0A" ;>When !Freeram_CustomL3Menu_MenuUptionID,x = $09
 	RTL
