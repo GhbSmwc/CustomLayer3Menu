@@ -328,13 +328,15 @@ ProcessLayer3Menu:
 							;
 							; AddressOfString = (!Freeram_CustomL3Menu_MenuUptionID,index * #!CustomL3Menu_MenuDisplay_OptionCharLength) + #!Freeram_CustomL3Menu_PasscodeCallBackSubroutine
 							;
+							WDM
 							LDA !Freeram_CustomL3Menu_MenuScrollPos
 							TAX							;>X = what option in menu currently processed
 							LDY #$00						;>Loop counter (counts from 0 to !Freeram_CustomL3Menu_NumberOfDisplayedOptions), this is the position relative to scroll position
 							.....Loop
 								CPY !Freeram_CustomL3Menu_NumberOfDisplayedOptions	;\Loop until all displays are done.
 								BEQ +							;|
-								BCS .....Done						;/
+								BCC +
+								JMP .....Done						;/
 								+
 								......CheckIfBeyondLastOption ;When the menu's display is bigger than the menu, we quit drawing options beyond the last
 									STY $00
@@ -373,18 +375,16 @@ ProcessLayer3Menu:
 									REP #$21
 									LDA $2306
 								endif
-								ADC.w !Freeram_CustomL3Menu_PasscodeCallBackSubroutine
+								ADC !Freeram_CustomL3Menu_PasscodeCallBackSubroutine
 								STA $08								;\$08-$0A: Address of the string data.
 								SEP #$20							;|
-								LDA !Freeram_CustomL3Menu_PasscodeCallBackSubroutine		;|
+								LDA !Freeram_CustomL3Menu_PasscodeCallBackSubroutine+2		;|
 								STA $0A								;/
-								LDA.b #!CustomL3Menu_MenuDisplay_XPos+1				;\$0B: Y position of the options.
-								STA $0B								;/
+								LDA.b #!CustomL3Menu_MenuDisplay_YPos+1				;\$01: Y position of the options.
+								STA $01								;/
 								......WriteOptionString
 									LDA.b #!CustomL3Menu_MenuDisplay_XPos+2			;\X pos
 									STA $00							;/
-									LDA $0B							;\Y pos
-									STA $01							;/
 									LDA #$05						;\Layer
 									STA $02							;/
 									STZ $03							;>D and RLE
@@ -396,8 +396,9 @@ ProcessLayer3Menu:
 									LDY #$0000							;>Y had to be 16-bit since the striper had to be 16-bit X
 									PHX
 									.......Loop
-										CPY.w #!CustomL3Menu_MenuDisplay_OptionCharLength+1
+										CPY.w #!CustomL3Menu_MenuDisplay_OptionCharLength
 										BCS .......CharDone
+										WDM
 										LDA [$08],y
 										STA $7F837D+4,x
 										LDA.b #!CustomL3Menu_MenuDisplay_Properties
@@ -413,10 +414,10 @@ ProcessLayer3Menu:
 									JSL FinishStripe
 									PLY
 								......Next
-									INC $0B				;\Each option goes 2 lines down
-									INC $0B				;/
+									INC $01				;\Each option goes 2 lines down
+									INC $01				;/
 									INY
-									BRA .....Loop
+									JMP .....Loop
 							.....Done
 							
 							

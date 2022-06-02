@@ -27,16 +27,16 @@ init:
 		RTL
 		..MenuOptionActBehavior:
 			;These are each option's behavior to write to !Freeram_CustomL3Menu_MenuUptionID.
-			db $01	;>When !Freeram_CustomL3Menu_CursorPos == $00 \Perform certain action.
-			db $02	;>When !Freeram_CustomL3Menu_CursorPos == $01 |
-			db $03	;>When !Freeram_CustomL3Menu_CursorPos == $02 /
-			db $00	;>When !Freeram_CustomL3Menu_CursorPos == $03
-			db $00	;>When !Freeram_CustomL3Menu_CursorPos == $04
-			db $00	;>When !Freeram_CustomL3Menu_CursorPos == $05
-			db $00	;>When !Freeram_CustomL3Menu_CursorPos == $06
-			db $00	;>When !Freeram_CustomL3Menu_CursorPos == $07
-			db $00	;>When !Freeram_CustomL3Menu_CursorPos == $08
-			db $00	;>When !Freeram_CustomL3Menu_CursorPos == $09
+			db $00	;>When !Freeram_CustomL3Menu_CursorPos == $00
+			db $01	;>When !Freeram_CustomL3Menu_CursorPos == $01
+			db $02	;>When !Freeram_CustomL3Menu_CursorPos == $02
+			db $03	;>When !Freeram_CustomL3Menu_CursorPos == $03
+			db $04	;>When !Freeram_CustomL3Menu_CursorPos == $04
+			db $05	;>When !Freeram_CustomL3Menu_CursorPos == $05
+			db $06	;>When !Freeram_CustomL3Menu_CursorPos == $06
+			db $07	;>When !Freeram_CustomL3Menu_CursorPos == $07
+			db $08	;>When !Freeram_CustomL3Menu_CursorPos == $08
+			db $09	;>When !Freeram_CustomL3Menu_CursorPos == $09
 			...End
 main:
 	.MenuBehavior
@@ -73,7 +73,7 @@ main:
 			;number gets decremented by 1 (another table will be used and because 0-based indexing), use
 			;that number as an index (y register) to grab a value from a table "....TeleportScreenToUse"
 			;which in turn sets up what screen exit to use during teleporting.
-			dw ...Nothing			;>!Freeram_CustomL3Menu_MenuUptionID,x = $00 (X = $00)
+			dw ...Teleport			;>!Freeram_CustomL3Menu_MenuUptionID,x = $00 (X = $00)
 			dw ...Teleport			;>!Freeram_CustomL3Menu_MenuUptionID,x = $01 (X = $02)
 			dw ...Teleport			;>!Freeram_CustomL3Menu_MenuUptionID,x = $02 (X = $04)
 			dw ...Teleport			;>!Freeram_CustomL3Menu_MenuUptionID,x = $03 (X = $06)
@@ -111,7 +111,6 @@ main:
 				LDA !Freeram_CustomL3Menu_CursorPos		;\X index = What menu option is highlighted
 				TAX						;/
 				LDA !Freeram_CustomL3Menu_MenuUptionID,x	;>A = the state of the highlighted option.
-				DEC
 				TAY						;>Y = index of what screen to use
 				
 				LDA #$7E					;\Bank bytes
