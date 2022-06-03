@@ -176,12 +176,15 @@ endif
  !Freeram_CustomL3Menu_NumberOfDisplayedOptions = $7C
   ;^[1 byte] This is the number of displayed options, minus 1. Used for scrolling menu displays if there are more options than displayed.
   
- !Freeram_CustomL3Menu_MenuUptionID = $7F0000
-  ;^[Number_of_bytes = Highest_number_of_options_in_game] Menu option ID, each byte is for each option in the menu in the
-  ; same order (first byte corresponds to the first option, 2nd on 2nd and so on). The number of bytes taken here is the highest number of
-  ; options in your entire game.
+ !Freeram_CustomL3Menu_MenuUptionBehavior = $7F0000
+  ;^[Number_of_bytes = Highest_number_of_options_in_game] Menu option ID, This contains what text, status and behaviors of each option
+  ; to use. Each byte here for each option in the menu in the same order (first byte corresponds to the first option, 2nd on 2nd and so
+  ; on). The number of bytes taken here is the menu having the highest number of options in your entire game.
   ;
-  ; The values in each byte represents what option it is, and is used for indexing what string of text to use.
+  ; Do note that the behaviors that each option perform when selected and the text itself are separate from Uberasm_tool_files/library/CustomLayer3Menu.asm
+  ; Meaning the code that perform certain actions (must run every frame when the menu is opened) when selecting an option and supplying
+  ; the text must be done on its own ASM file. See example in Uberasm_tool_files/level/LevelWarpMenu.asm. The reason for this is to
+  ; allow any type of menus.
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;Scratch RAM
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

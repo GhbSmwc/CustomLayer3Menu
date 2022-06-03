@@ -326,7 +326,7 @@ ProcessLayer3Menu:
 						....WriteOptions
 							;To know what to write in the displayed options, we calculate:
 							;
-							; AddressOfString = (!Freeram_CustomL3Menu_MenuUptionID,index * #!CustomL3Menu_MenuDisplay_OptionCharLength) + #!Freeram_CustomL3Menu_PasscodeCallBackSubroutine
+							; AddressOfString = (!Freeram_CustomL3Menu_MenuUptionBehavior,index * #!CustomL3Menu_MenuDisplay_OptionCharLength) + #!Freeram_CustomL3Menu_PasscodeCallBackSubroutine
 							;
 							LDY #$00						;>Loop counter (counts from 0 to !Freeram_CustomL3Menu_NumberOfDisplayedOptions), this is the position relative to scroll position
 							LDA.b #!CustomL3Menu_MenuDisplay_YPos+1			;\$0B: Current Y position
@@ -357,7 +357,7 @@ ProcessLayer3Menu:
 								ADC !Freeram_CustomL3Menu_MenuScrollPos
 								TAX							;>X = what option in menu currently processed
 								if !sa1 == 0
-									LDA !Freeram_CustomL3Menu_MenuUptionID,x
+									LDA !Freeram_CustomL3Menu_MenuUptionBehavior,x
 									STA $4202
 									LDA #!CustomL3Menu_MenuDisplay_OptionCharLength
 									STA $4203
@@ -366,7 +366,7 @@ ProcessLayer3Menu:
 									LDA $4216
 								else
 									STZ $2250				;>Multiply mode
-									LDA !Freeram_CustomL3Menu_MenuUptionID,x
+									LDA !Freeram_CustomL3Menu_MenuUptionBehavior,x
 									STA $2251
 									STZ $2252
 									LDA #!CustomL3Menu_MenuDisplay_OptionCharLength
