@@ -65,6 +65,9 @@ main:
 		LDA !Freeram_ControlBackup+1+!CustomL3Menu_WhichControllerDataToConfirm2	;|
 		AND.b #!CustomL3Menu_ButtonConfirm2						;|
 		BNE ..Confirm									;/
+		LDA !Freeram_ControlBackup+1+!CustomL3Menu_WhichControllerDataToCancel		;\Check if player cancels
+		AND.b #!CustomL3Menu_ButtonCancel						;/
+		BNE ..Confirm_Exit								;>Exit
 		RTL
 		..Confirm
 			LDA !Freeram_CustomL3Menu_CursorPos		;\X index = What menu option is highlighted
@@ -75,9 +78,15 @@ main:
 			;BEQ ...Exit
 			
 			...Exit
+				LDA #!CustomL3Menu_SoundEffectNumber_Cancel		;\Cancel sound effect
+				STA !CustomL3Menu_SoundEffectPort_Cancel		;/
+				LDA #$02
+				STA !Freeram_CustomL3Menu_WritePhase
 				RTL
 			
 			...Teleport
+				LDA #!CustomL3Menu_SoundEffectNumber_Confirm		;\Confirm sound effect
+				STA !CustomL3Menu_SoundEffectPort_Confirm		;/
 				if !EXLEVEL
 					JSL $03BCDC|!bank	;>LM's subroutine that calculate what screen the player is in since there are multiple boundaries on both X and Y.
 				else

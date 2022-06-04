@@ -258,13 +258,22 @@ endif
    !CustomL3Menu_NumberInput_XPos = 3 ;>31 ($1F) = right edge of screen
    !CustomL3Menu_NumberInput_YPos = 25 ;>27 ($1B) = bottom of screen
   ;Menu
-   !CustomL3Menu_MenuDisplay_XPos = 3
-   !CustomL3Menu_MenuDisplay_YPos = 6
+   ;These represents the top-rightmost minimum bounding box of the entire graphic of the menu.
+   ;-The up arrow indicating the menu could scroll up would be at (!CustomL3Menu_MenuDisplay_XPos, CustomL3Menu_MenuDisplay_YPos)
+   ;-Cursor would be at X = !CustomL3Menu_MenuDisplay_XPos and the Y position would be at
+   ; Y = !CustomL3Menu_MenuDisplay_YPos+1+(Index*2) where "Index" is 0, 1, 2... up to (including) a value stored in !Freeram_CustomL3Menu_NumberOfCursorPositions.
+   ;-Menu option's position (origin at the first character, including space) would be at X = !CustomL3Menu_MenuDisplay_XPos+2 and the Y position
+   ; of each option is the same as the cursor positions.
+   ;-The down arrow indicating the menu could scroll down would be at X = !CustomL3Menu_MenuDisplay_XPos and
+   ; Y = !CustomL3Menu_MenuDisplay_YPos+((!Freeram_CustomL3Menu_NumberOfCursorPositions+1)*2), where !Freeram_CustomL3Menu_NumberOfCursorPositions
+   ; in this formula refers to the value stored, not the RAM address number.
+    !CustomL3Menu_MenuDisplay_XPos = 3
+    !CustomL3Menu_MenuDisplay_YPos = 6
    
    !CustomL3Menu_MenuDisplay_OptionCharLength = 9
-    ;^The number of characters, including spaces for each option. NOTE: All strings must be this length
+    ;^The maximum number of characters, including spaces for each option. NOTE: All strings must be this length
     ; so that when the menu scrolls, leftover tiles won't appear when a string gets replaced with a shorter
-    ; string.
+    ; string. This can be accomplished by adding spaces at the end if your strings are shorter.
     
    !CustomL3Menu_MenuDisplay_Properties = %00111000
     ;^The YXPCCCTT properties of each options in the menu

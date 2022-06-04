@@ -172,260 +172,279 @@ ProcessLayer3Menu:
 			PHB					;>Preserve bank
 			PHK					;\Change bank so that $xxxx,y works correctly
 			PLB					;/
-			
-			.RespondToUserInput
-				LDA !Freeram_CustomL3Menu_CursorPos				;\Cursor position, relative to scroll position
-				SEC								;|
-				SBC !Freeram_CustomL3Menu_MenuScrollPos				;/
-				STA $06								;>$06 = Cursor position relative to scroll (used as to check if it move in "relation to the screen" to know if a VRAM update is needed)
-				LDA !Freeram_CustomL3Menu_MenuScrollPos
-				STA $01								;>$01 = Scroll position (before the change, again, used to check should the options need an update)
-				LDX #$00							;>Vertical menu
-				JSL DPadMoveCursorOnMenu
-				..IfPlayerCancels
-					LDA !Freeram_ControlBackup+1+!CustomL3Menu_WhichControllerDataToCancel
-					AND.b #!CustomL3Menu_ButtonCancel
-					BEQ ..ClampTheScrollPosToBeWhereTheCursorIsAt
-					
-					;asdf (insert code here that closes the menu)
-				..ClampTheScrollPosToBeWhereTheCursorIsAt
-					;We have to treat the positions here as if they're 16-bit so that we can have more than 127 possible options without
-					;potential glitches as well as when the cursor wraps the menu.
-					LDA !Freeram_CustomL3Menu_CursorPos			;\Carry here clears if CursorPos < ScrollPos
-					SEC							;|
-					SBC !Freeram_CustomL3Menu_MenuScrollPos			;|
-					LDA #$00						;|
-					SBC #$00						;/
-					BMI ...ScrollUp						;>Which can be used to check if the cursor is above the scrolled area.
-					
-					...HandleScrollDown
-					LDA !Freeram_CustomL3Menu_MenuScrollPos			;\$02-$03: Last option displayed position
-					CLC							;|
-					ADC !Freeram_CustomL3Menu_NumberOfDisplayedOptions	;|
-					STA $02							;|
-					LDA #$00						;|
-					ADC #$00						;|
-					STA $03							;/
-					LDA !Freeram_CustomL3Menu_CursorPos			;\$02-$03: Cursor position, relative to scroll position.
-					SEC							;|
-					SBC $02							;|
-					STA $02							;|
-					LDA #$00						;|
-					SBC $03							;|
-					STA $03							;/
-					REP #$20
-					LDA $02
-					SEP #$20
-					BEQ ...ScrollDone					;\If cursor relative to scroll pos is past the last displayed option, scroll down.
-					BPL ...ScrollDown					;/
-					BRA ...ScrollDone					;>Situation where the cursor moves but not scroll.
-					...ScrollUp
-						LDA !Freeram_CustomL3Menu_CursorPos
-						BRA ...WriteScrollPos
-					...ScrollDown
-						LDA !Freeram_CustomL3Menu_CursorPos
-						SEC
-						SBC !Freeram_CustomL3Menu_NumberOfDisplayedOptions
-					...WriteScrollPos
-						STA !Freeram_CustomL3Menu_MenuScrollPos
-					...ScrollDone
-				..ChangeDetection
-					;These figures out wheter or not if the cursor graphic needs to change or not, as well as the text.
-					...Cursor
-						LDX #$00
-						LDA !Freeram_CustomL3Menu_CursorPos
-						SEC
-						SBC !Freeram_CustomL3Menu_MenuScrollPos
-						CMP $06
-						BEQ ....NoCursorChange
-						....CursorChange
-							INX
-						....NoCursorChange
-						STX $07			;>$07: %0000000C, C bit:Cursor needs to update: 0 = no, 1 = yes.
-					...Scroll
-						LDX #$00
-						LDA !Freeram_CustomL3Menu_MenuScrollPos
-						CMP $01
-						BEQ ....NoScroll
-						....DidScroll
-							INX
-						....NoScroll
-						LDA $07
-						ORA MenuSelectionBitwiseMenuScroll,x
-						STA $07			;>$07: %000000SC, S bit: scroll needs to update: 0 = no, 1 = yes.
-				..DrawMenu
-					;We now have the info stored:
-					;-RAM $00-$05 will be used for handling stripe
-					;-Taking the value stored in !Freeram_CustomL3Menu_CursorPos and subtracting whats stored in
-					; !Freeram_CustomL3Menu_MenuScrollPos right here will give you the current cursor position relative to the scroll position.
-					;-RAM $06: Previous cursor position relative to the scroll (effectively this is the position "relative to the screen"), before it was moved.
-					; This is needed so that when the cursor move without scrolling, or have wrapped to and from the first and last item in a menu when
-					; the number of options is longer than how many options shown, to erase the previous cursor with the new cursor drawn on the current option.
-					;
-					;-RAM $07: What menu elements need to update, format:
-					;
-					; %000000SC
-					; 
-					; C = Cursor position change in relation to the scroll position. When just the cursor moves and no scrolling occurred,
-					;     this bit is set.
-					; S = Scrolled flag. When menu scrolling occurred (move cursor upwards when it is at the top or downwards at the bottom),
-					;     this bit is set.
-					; 
-					; Both C and S bits are set when a wraparound occurred and the displayed options are less than the number of existing options.
-					; 
-					;Reason to have such an info is we need to only update the tiles if necessary. This is to prevent potential VRAM overflow:
-					;black bars flickering at the top of the screen.
-					...Cursor
-						;DrawCursorPos = (CursorPosRelativeToScroll*2) + (#!CustomL3Menu_MenuDisplay_YPos + 1)
-						;
-						;(CursorPos*2) makes it so the cursor jumps up/down by 2 lines since the menu are "double-spaced" line breaks.
-						LDA !Freeram_CustomL3Menu_WritePhase			;\Draw cursor (so when the menu appears, and before the player moves the cusor, the cursor shows up and not only show the options)
-						BEQ ....WriteCurrentCursorPos				;/
-						LDA $07
-						AND.b #%00000001
-						BEQ ....CursorWriteDone
-						....ErasePreviousCursor
-							LDA $06						;\Y position
-							ASL						;|
-							CLC						;|
-							ADC #!CustomL3Menu_MenuDisplay_YPos+1		;|
-							STA $01						;/
-							JSR .SetupStripeInputs
-							JSL SetupStripeHeaderAndIndex
-							LDA #$FC					;\Tile number
-							STA.l $7F837D+4,x				;/
-							LDA.b #%00000000				;\Tile properties (YXPCCCTT)
-							STA.l $7F837D+4+1,x				;/
-							JSL FinishStripe
-						....WriteCurrentCursorPos
-							LDA !Freeram_CustomL3Menu_CursorPos		;\Y position
-							SEC						;|
-							SBC !Freeram_CustomL3Menu_MenuScrollPos		;|>A = cursor position relative to scroll, currently
-							ASL						;|
-							CLC						;|
-							ADC #!CustomL3Menu_MenuDisplay_YPos+1		;|
-							STA $01						;/
-							JSR .SetupStripeInputs
-							JSL SetupStripeHeaderAndIndex
-							LDA #$2E					;\Tile number
-							STA.l $7F837D+4,x				;/
-							LDA.b #%00101001				;\Tile properties (YXPCCCTT)
-							STA.l $7F837D+4+1,x				;/
-							JSL FinishStripe
-						....CursorWriteDone
-					...Options
-						LDA !Freeram_CustomL3Menu_WritePhase			;\Draw options (so when the menu appears, and before the player moves the cursor, the options shows up)
-						BEQ ....WriteOptions					;/
-						LDA $07							;\If there is no need to update the options due to a no-scroll
-						AND.b #%00000010					;|don't update.
-						;BEQ ....WriteOptionsDone				;|
-						BNE +							;|
-						JMP ....WriteOptionsDone				;/
-						+
-						
-						....WriteOptions
-							;To know what to write in the displayed options, we calculate:
-							;
-							; AddressOfString = (!Freeram_CustomL3Menu_MenuUptionBehavior,index * #!CustomL3Menu_MenuDisplay_OptionCharLength) + #!Freeram_CustomL3Menu_PasscodeCallBackSubroutine
-							;
-							LDY #$00						;>Loop counter (counts from 0 to !Freeram_CustomL3Menu_NumberOfDisplayedOptions), this is the position relative to scroll position
-							LDA.b #!CustomL3Menu_MenuDisplay_YPos+1			;\$0B: Current Y position
-							STA $0B							;/
-							.....Loop
-								CPY !Freeram_CustomL3Menu_NumberOfDisplayedOptions	;\Loop until all displays are done.
-								BEQ +							;|
-								BCC +
-								JMP .....Done						;/
-								+
-								......CheckIfBeyondLastOption ;When the menu's display is bigger than the menu, we quit drawing options beyond the last
-									STY $00
-									LDA !Freeram_CustomL3Menu_MenuScrollPos			;\$00-$01: Currently processed menu item in relation of the whole menu
-									CLC							;|
-									ADC $00							;|
-									STA $00							;|
-									LDA #$00						;|
-									ADC #$00						;|
-									STA $01							;/
-									REP #$20
-									LDA !Freeram_CustomL3Menu_NumberOfCursorPositions
-									AND #$00FF
-									CMP $00
-									SEP #$20
-									BCC .....Done						;>If last index < last displayed (or last displayed > last index), don't write.
-								TYA
-								CLC
-								ADC !Freeram_CustomL3Menu_MenuScrollPos
-								TAX							;>X = what option in menu currently processed
-								if !sa1 == 0
-									LDA !Freeram_CustomL3Menu_MenuUptionBehavior,x
-									STA $4202
-									LDA #!CustomL3Menu_MenuDisplay_OptionCharLength
-									STA $4203
-									NOP #4						;>Wait 8 cycles
-									REP #$21
-									LDA $4216
-								else
-									STZ $2250				;>Multiply mode
-									LDA !Freeram_CustomL3Menu_MenuUptionBehavior,x
-									STA $2251
-									STZ $2252
-									LDA #!CustomL3Menu_MenuDisplay_OptionCharLength
-									STA $2253
-									STZ $2254
-									NOP					;\Wait 5 cycles
-									BRA $00					;/
-									REP #$21
-									LDA $2306
-								endif
-								ADC !Freeram_CustomL3Menu_PasscodeCallBackSubroutine
-								STA $08								;\$08-$0A: Address of the string data.
-								SEP #$20							;|
-								LDA !Freeram_CustomL3Menu_PasscodeCallBackSubroutine+2		;|
-								STA $0A								;/
-								......WriteOptionString
-									LDA $0B							;\Y position
-									STA $01							;/
-									LDA.b #!CustomL3Menu_MenuDisplay_XPos+2			;\X pos
-									STA $00							;/
-									LDA #$05						;\Layer
-									STA $02							;/
-									STZ $03							;>D and RLE
-									LDA.b #!CustomL3Menu_MenuDisplay_OptionCharLength	;\Number of tiles
-									STA $04							;|
-									STZ $05							;/
-									PHY
-									JSL SetupStripeHeaderAndIndex
-									LDY #$0000							;>Y had to be 16-bit since the striper had to be 16-bit X
-									PHX
-									.......Loop
-										CPY.w #!CustomL3Menu_MenuDisplay_OptionCharLength
-										BCS .......CharDone
-										LDA [$08],y
-										STA $7F837D+4,x
-										LDA.b #!CustomL3Menu_MenuDisplay_Properties
-										STA $7F837D+5,x
-										
-										........Next
-											INX #2
-											INY
-											BRA .......Loop
-										
-									.......CharDone
-									PLX
-									JSL FinishStripe
-									PLY
-								......Next
-									INC $0B				;\Each option goes 2 lines down
-									INC $0B				;/
-									INY
-									JMP .....Loop
-							.....Done
-							
-							
-							
 
+			LDA !Freeram_CustomL3Menu_WritePhase
+			ASL
+			TAX
+			JMP.w (.MenuSelectionStates,x)
+			
+			.MenuSelectionStates
+				dw ..RespondToUserInput			;>!Freeram_CustomL3Menu_WritePhase == $00
+				dw ..RespondToUserInput			;>!Freeram_CustomL3Menu_WritePhase == $01
+				dw ..CloseMenuDeleteCursor		;>!Freeram_CustomL3Menu_WritePhase == $02
+				dw ..CloseMenuDeleteOptions		;>!Freeram_CustomL3Menu_WritePhase == $03
+				dw ..CloseMenuDeleteScrollArrows	;>!Freeram_CustomL3Menu_WritePhase == $04
+			
+				..RespondToUserInput
+					LDA !Freeram_CustomL3Menu_CursorPos				;\Cursor position, relative to scroll position
+					SEC								;|
+					SBC !Freeram_CustomL3Menu_MenuScrollPos				;/
+					STA $06								;>$06 = Cursor position relative to scroll (used as to check if it move in "relation to the screen" to know if a VRAM update is needed)
+					LDA !Freeram_CustomL3Menu_MenuScrollPos
+					STA $01								;>$01 = Scroll position (before the change, again, used to check should the options need an update)
+					LDX #$00							;>Vertical menu
+					JSL DPadMoveCursorOnMenu
+					...IfPlayerCancels
+						LDA !Freeram_ControlBackup+1+!CustomL3Menu_WhichControllerDataToCancel	;\Check if player cancels
+						AND.b #!CustomL3Menu_ButtonCancel					;/
+						BEQ +
+						LDA #$02								;\Begin closing the menu
+						STA !Freeram_CustomL3Menu_WritePhase					;/
+						JMP .Done
+						+
+					...ClampTheScrollPosToBeWhereTheCursorIsAt
+						;We have to treat the positions here as if they're 16-bit so that we can have more than 127 possible options without
+						;potential glitches as well as when the cursor wraps the menu.
+						;
+						;This calculates the scroll position
+						LDA !Freeram_CustomL3Menu_CursorPos			;\Carry here clears if CursorPos < ScrollPos
+						SEC							;|
+						SBC !Freeram_CustomL3Menu_MenuScrollPos			;|
+						LDA #$00						;|
+						SBC #$00						;/
+						BMI ....ScrollUp					;>Which can be used to check if the cursor is above the scrolled area.
+						
+						....HandleScrollDown
+						LDA !Freeram_CustomL3Menu_MenuScrollPos			;\$02-$03: Last option displayed position
+						CLC							;|
+						ADC !Freeram_CustomL3Menu_NumberOfDisplayedOptions	;|
+						STA $02							;|
+						LDA #$00						;|
+						ADC #$00						;|
+						STA $03							;/
+						LDA !Freeram_CustomL3Menu_CursorPos			;\$02-$03: Cursor position, relative to scroll position.
+						SEC							;|
+						SBC $02							;|
+						STA $02							;|
+						LDA #$00						;|
+						SBC $03							;|
+						STA $03							;/
+						REP #$20
+						LDA $02
+						SEP #$20
+						BEQ ....ScrollDone					;\If cursor relative to scroll pos is past the last displayed option, scroll down.
+						BPL ....ScrollDown					;/
+						BRA ....ScrollDone					;>Situation where the cursor moves but not scroll.
+						....ScrollUp
+							LDA !Freeram_CustomL3Menu_CursorPos
+							BRA ....WriteScrollPos
+						....ScrollDown
+							LDA !Freeram_CustomL3Menu_CursorPos
+							SEC
+							SBC !Freeram_CustomL3Menu_NumberOfDisplayedOptions
+						....WriteScrollPos
+							STA !Freeram_CustomL3Menu_MenuScrollPos
+						....ScrollDone
+					...ChangeDetection
+						;These figures out wheter or not if the cursor graphic needs to change or not, as well as the text.
+						....Cursor
+							LDX #$00
+							LDA !Freeram_CustomL3Menu_CursorPos
+							SEC
+							SBC !Freeram_CustomL3Menu_MenuScrollPos
+							CMP $06
+							BEQ .....NoCursorChange
+							.....CursorChange
+								INX
+							.....NoCursorChange
+							STX $07			;>$07: %0000000C, C bit:Cursor needs to update: 0 = no, 1 = yes.
+						....Scroll
+							LDX #$00
+							LDA !Freeram_CustomL3Menu_MenuScrollPos
+							CMP $01
+							BEQ .....NoScroll
+							.....DidScroll
+								INX
+							.....NoScroll
+							LDA $07
+							ORA MenuSelectionBitwiseMenuScroll,x
+							STA $07			;>$07: %000000SC, S bit: scroll needs to update: 0 = no, 1 = yes.
+					...DrawMenu
+						;We now have the info stored:
+						;-RAM $00-$05 will be used for handling stripe
+						;-Taking the value stored in !Freeram_CustomL3Menu_CursorPos and subtracting whats stored in
+						; !Freeram_CustomL3Menu_MenuScrollPos right here will give you the current cursor position relative to the scroll position.
+						;-RAM $06: Previous cursor position relative to the scroll (effectively this is the position "relative to the screen"), before it was moved.
+						; This is needed so that when the cursor move without scrolling, or have wrapped to and from the first and last item in a menu when
+						; the number of options is longer than how many options shown, to erase the previous cursor with the new cursor drawn on the current option.
+						;
+						;-RAM $07: What menu elements need to update, format:
+						;
+						; %000000SC
+						; 
+						; C = Cursor position change in relation to the scroll position. When just the cursor moves and no scrolling occurred,
+						;     this bit is set.
+						; S = Scrolled flag. When menu scrolling occurred (move cursor upwards when it is at the top or downwards at the bottom),
+						;     this bit is set.
+						; 
+						; Both C and S bits are set when a wraparound occurred and the displayed options are less than the number of existing options.
+						; 
+						;Reason to have such an info is we need to only update the tiles if necessary. This is to prevent potential VRAM overflow:
+						;black bars flickering at the top of the screen.
+						....Cursor
+							;DrawCursorPos = (CursorPosRelativeToScroll*2) + (#!CustomL3Menu_MenuDisplay_YPos + 1)
+							;
+							;(CursorPos*2) makes it so the cursor jumps up/down by 2 lines since the menu are "double-spaced" line breaks.
+							LDA !Freeram_CustomL3Menu_WritePhase			;\Draw cursor (so when the menu appears, and before the player moves the cusor, the cursor shows up and not only show the options)
+							BEQ .....WriteCurrentCursorPos				;/
+							LDA $07
+							AND.b #%00000001
+							BEQ .....CursorWriteDone
+							.....ErasePreviousCursor
+								LDA $06						;\Y position
+								ASL						;|
+								CLC						;|
+								ADC #!CustomL3Menu_MenuDisplay_YPos+1		;|
+								STA $01						;/
+								JSR .SetupStripeInputs
+								JSL SetupStripeHeaderAndIndex
+								LDA #$FC					;\Tile number
+								STA.l $7F837D+4,x				;/
+								LDA.b #%00000000				;\Tile properties (YXPCCCTT)
+								STA.l $7F837D+4+1,x				;/
+								JSL FinishStripe
+							.....WriteCurrentCursorPos
+								LDA !Freeram_CustomL3Menu_CursorPos		;\Y position
+								SEC						;|
+								SBC !Freeram_CustomL3Menu_MenuScrollPos		;|>A = cursor position relative to scroll, currently
+								ASL						;|
+								CLC						;|
+								ADC #!CustomL3Menu_MenuDisplay_YPos+1		;|
+								STA $01						;/
+								JSR .SetupStripeInputs
+								JSL SetupStripeHeaderAndIndex
+								LDA #$2E					;\Tile number
+								STA.l $7F837D+4,x				;/
+								LDA.b #%00101001				;\Tile properties (YXPCCCTT)
+								STA.l $7F837D+4+1,x				;/
+								JSL FinishStripe
+							.....CursorWriteDone
+						....Options
+							LDA !Freeram_CustomL3Menu_WritePhase			;\Draw options (so when the menu appears, and before the player moves the cursor, the options shows up)
+							BEQ .....WriteOptions					;/
+							LDA $07							;\If there is no need to update the options due to a no-scroll
+							AND.b #%00000010					;|don't update.
+							BNE +							;|
+							JMP .Done						;/
+							+
+							
+							.....WriteOptions
+								;To know what to write in the displayed options, we calculate:
+								;
+								; AddressOfString = (!Freeram_CustomL3Menu_MenuUptionBehavior,index * #!CustomL3Menu_MenuDisplay_OptionCharLength) + #!Freeram_CustomL3Menu_PasscodeCallBackSubroutine
+								;
+								LDY #$00						;>Loop counter (counts from 0 to !Freeram_CustomL3Menu_NumberOfDisplayedOptions), this is the position relative to scroll position
+								LDA.b #!CustomL3Menu_MenuDisplay_YPos+1			;\$0B: Current Y position
+								STA $0B							;/
+								......Loop
+									TYA
+									CMP !Freeram_CustomL3Menu_NumberOfDisplayedOptions	;\Loop until all displays are done.
+									BEQ +							;|
+									BCC +
+									JMP ......Done						;/
+									+
+									.......CheckIfBeyondLastOption ;When the menu's display is bigger than the menu, we quit drawing options beyond the last
+										STY $00
+										LDA !Freeram_CustomL3Menu_MenuScrollPos			;\$00-$01: Currently processed menu item in relation of the whole menu
+										CLC							;|
+										ADC $00							;|
+										STA $00							;|
+										LDA #$00						;|
+										ADC #$00						;|
+										STA $01							;/
+										REP #$20
+										LDA !Freeram_CustomL3Menu_NumberOfCursorPositions
+										AND #$00FF
+										CMP $00
+										SEP #$20
+										BCC ......Done						;>If last index < last displayed (or last displayed > last index), don't write.
+									TYA
+									CLC
+									ADC !Freeram_CustomL3Menu_MenuScrollPos
+									TAX							;>X = what option in menu currently processed
+									if !sa1 == 0
+										LDA !Freeram_CustomL3Menu_MenuUptionBehavior,x
+										STA $4202
+										LDA #!CustomL3Menu_MenuDisplay_OptionCharLength
+										STA $4203
+										NOP #4						;>Wait 8 cycles
+										REP #$21
+										LDA $4216
+									else
+										STZ $2250				;>Multiply mode
+										LDA !Freeram_CustomL3Menu_MenuUptionBehavior,x
+										STA $2251
+										STZ $2252
+										LDA #!CustomL3Menu_MenuDisplay_OptionCharLength
+										STA $2253
+										STZ $2254
+										NOP					;\Wait 5 cycles
+										BRA $00					;/
+										REP #$21
+										LDA $2306
+									endif
+									ADC !Freeram_CustomL3Menu_PasscodeCallBackSubroutine
+									STA $08								;\$08-$0A: Address of the string data.
+									SEP #$20							;|
+									LDA !Freeram_CustomL3Menu_PasscodeCallBackSubroutine+2		;|
+									STA $0A								;/
+									.......WriteOptionString
+										LDA $0B							;\Y position
+										STA $01							;/
+										LDA.b #!CustomL3Menu_MenuDisplay_XPos+2			;\X pos
+										STA $00							;/
+										LDA #$05						;\Layer
+										STA $02							;/
+										STZ $03							;>D and RLE
+										LDA.b #!CustomL3Menu_MenuDisplay_OptionCharLength	;\Number of tiles
+										STA $04							;|
+										STZ $05							;/
+										PHY
+										JSL SetupStripeHeaderAndIndex
+										LDY #$0000							;>Y had to be 16-bit since the striper had to be 16-bit X
+										PHX
+										........Loop
+											CPY.w #!CustomL3Menu_MenuDisplay_OptionCharLength
+											BCS ........CharDone
+											LDA [$08],y
+											STA $7F837D+4,x
+											LDA.b #!CustomL3Menu_MenuDisplay_Properties
+											STA $7F837D+5,x
+											
+											.........Next
+												INX #2
+												INY
+												BRA ........Loop
+											
+										........CharDone
+										PLX
+										JSL FinishStripe
+										PLY
+									.......Next
+										INC $0B				;\Each option goes 2 lines down
+										INC $0B				;/
+										INY
+										JMP ......Loop
+								......Done
 						....DisplayScrollArrows
 							;When the menu can be scrolled up or down, display so that the user is informed there is more options.
+							LDA !Freeram_CustomL3Menu_WritePhase			;\Draw options (so when the menu appears, and before the player moves the cursor, the options shows up)
+							BEQ .....CheckScrollUp					;/
+							LDA $07							;\If there is no need to update the options due to a no-scroll
+							AND.b #%00000010					;|don't update.
+							BNE +							;|
+							JMP .Done						;/
+							+
 							.....CheckScrollUp
 								JSR .SetupStripeInputs			;>X, layer, D/RLE, and 1 tile
 								LDA.b #!CustomL3Menu_MenuDisplay_YPos	;\Y position
@@ -467,10 +486,114 @@ ProcessLayer3Menu:
 								STA $7F837D+4,x
 								SEP #$20
 								JSL FinishStripe
-						....WriteOptionsDone
+							.....WriteOptionsDone
+								LDA #$01
+								STA !Freeram_CustomL3Menu_WritePhase
+								JMP .Done
+				..CloseMenuDeleteCursor	;>!Freeram_CustomL3Menu_WritePhase == $02
+					LDA.b #!CustomL3Menu_MenuDisplay_XPos
+					STA $00
+					;CursorYpos = ((!Freeram_CustomL3Menu_CursorPos-!Freeram_CustomL3Menu_MenuScrollPos)*2) + !CustomL3Menu_MenuDisplay_YPos + 1
+					LDA !Freeram_CustomL3Menu_CursorPos
+					SEC
+					SBC !Freeram_CustomL3Menu_MenuScrollPos
+					ASL A
+					CLC
+					ADC.b #!CustomL3Menu_MenuDisplay_YPos+1
+					STA $01
+					JSR .SetupStripeInputs		;>X position, layer 3, horizontal without RLE, and 1 tile.
+					JSL SetupStripeHeaderAndIndex
+					REP #$20
+					LDA #$38FC			;>Tile $FC, YXPCCCTT = $38 (%00111000), the blank tile
+					STA $7F837D+4,x
+					SEP #$20
+					JSL FinishStripe
+					LDA #$03
+					STA !Freeram_CustomL3Menu_WritePhase
+					JMP .Done
+				..CloseMenuDeleteOptions	;>!Freeram_CustomL3Menu_WritePhase == $03
+					LDA.b #!CustomL3Menu_MenuDisplay_YPos+1
+					STA $06
+					LDY #$00
+					...Loop
+						TYA
+						CMP !Freeram_CustomL3Menu_NumberOfCursorPositions
+						BEQ +
+						BCS ...Done
+						+
+						PHY
+						LDA.b #!CustomL3Menu_MenuDisplay_XPos+2			;\X pos
+						STA $00							;/
+						LDA $06							;\Y pos
+						STA $01							;/
+						LDA #$05						;\Layer
+						STA $02							;/
+						LDA.b #%01000000					;\Direction and RLE (RLE will be used)
+						STA $03							;/
+						LDA.b #!CustomL3Menu_MenuDisplay_OptionCharLength	;\Number of tiles
+						STA $04							;|
+						STZ $05							;/
+						JSL SetupStripeHeaderAndIndex
+						REP #$20
+						LDA #$38FC			;>Tile $FC, YXPCCCTT = $38 (%00111000), the blank tile
+						STA $7F837D+4,x
+						SEP #$20
+						JSL FinishStripe
+						PLY
+						....Next
+							INC $06
+							INC $06
+							INY
+							BRA ...Loop
+						
+					...Done
+						LDA #$04
+						STA !Freeram_CustomL3Menu_WritePhase
+						JMP .Done
+				..CloseMenuDeleteScrollArrows		;>!Freeram_CustomL3Menu_WritePhase == $04
+					...UpArrow
+						LDA.b #!CustomL3Menu_MenuDisplay_XPos	;\XY position
+						STA $00					;|
+						LDA.b #!CustomL3Menu_MenuDisplay_YPos	;|
+						STA $01					;/
+						LDA #$05				;\Layer 3
+						STA $02					;/
+						STZ $03					;>Horizontal, no RLE
+						LDA #$01				;\1 tile
+						STA $04					;|
+						STZ $05					;/
+						JSL SetupStripeHeaderAndIndex
+						REP #$20
+						LDA #$38FC			;>Tile $FC, YXPCCCTT = $38 (%00111000), the blank tile
+						STA $7F837D+4,x
+						SEP #$20
+						JSL FinishStripe
+					...DownArrow
+						LDA.b #!CustomL3Menu_MenuDisplay_XPos			;\XY position
+						STA $00							;|
+						LDA !Freeram_CustomL3Menu_NumberOfDisplayedOptions	;|
+						INC							;|
+						ASL							;|
+						CLC							;|
+						ADC.b #!CustomL3Menu_MenuDisplay_YPos			;|
+						STA $01							;/
+						LDA #$05						;\Layer 3
+						STA $02							;/
+						STZ $03							;>Horizontal, no RLE
+						LDA #$01						;\1 tile
+						STA $04							;|
+						STZ $05							;/
+						JSL SetupStripeHeaderAndIndex
+						REP #$20
+						LDA #$38FC			;>Tile $FC, YXPCCCTT = $38 (%00111000), the blank tile
+						STA $7F837D+4,x
+						SEP #$20
+						JSL FinishStripe
+					..ExitMenuMode
+						LDA #$01				;\Go back to normal
+						STA !Freeram_CustomL3Menu_UIState	;/
+						JMP .Done
 			.Done
-			LDA #$01					;\Make it so that it forcibly draws on initial menu appearing and not every frame besides the user moving cursor.
-			STA !Freeram_CustomL3Menu_WritePhase		;/
 			PLB					;>Restore bank
 			RTL
 			.SetupStripeInputs
