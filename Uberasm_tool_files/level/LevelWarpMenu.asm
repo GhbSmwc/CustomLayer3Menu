@@ -54,11 +54,15 @@ init:
 main:
 	.MenuBehavior
 		;This sets up the behavior when selecting an option. This must run every frame only when the menu is opened.
-		LDA !Freeram_CustomL3Menu_UIState	;\Must be in menu mode so that when the menu is closed does not have the possibility
-		CMP #$02				;|of triggering the warp (assuming that it's possible to have such controller backup being
-		BCS +					;/nonzero outside menus).
-		RTL
+		LDA !Freeram_CustomL3Menu_UIState		;\Must be in menu mode so that when the menu is closed does not have the possibility
+		CMP #$02					;|of triggering the warp (assuming that it's possible to have such controller backup being
+		;BNE ..Confirm_Teleport_Done			;/nonzero outside menus).
+		BEQ +
+		JMP ..Confirm_Teleport_Done
 		+
+		LDA !Freeram_CustomL3Menu_WritePhase		;\Don't allow confirmation during menu closing
+		CMP #$02					;|
+		BCS ..Confirm_Teleport_Done			;/
 		LDA !Freeram_ControlBackup+1+!CustomL3Menu_WhichControllerDataToConfirm		;\Button to confirm
 		AND.b #!CustomL3Menu_ButtonConfirm						;|
 		BNE ..Confirm									;|
@@ -143,7 +147,8 @@ main:
 				STZ $89			;/
 				LDA #$01
 				STA !Freeram_CustomL3Menu_UIState
-				RTL
+				....Done
+					RTL
 				....TeleportScreenToUse
 					;These are screen numbers to use, NOT by option's position in the menu, but by
 					;the current-option-the-cursor-is-on's !Freeram_CustomL3Menu_MenuUptionBehavior,x value.
@@ -180,4 +185,3 @@ main:
 		db "SCREEN 09" ;>When !Freeram_CustomL3Menu_MenuUptionBehavior,x = $08
 		db "SCREEN 0A" ;>When !Freeram_CustomL3Menu_MenuUptionBehavior,x = $09
 		db "BACK     " ;>When !Freeram_CustomL3Menu_MenuUptionBehavior,x = $0A
-	RTL
