@@ -1,0 +1,40 @@
+<html>
+	<head>
+		<style>
+			html {
+			background-color: black;
+			color: white;
+			font-family: sans-serif;
+			}
+			
+			span.NoLineBreak {
+				white-space: nowrap;
+			}
+			
+			abbr{cursor: help;}
+			img.img-hor {
+				-moz-transform: scaleX(-1);
+				-o-transform: scaleX(-1);
+				-webkit-transform: scaleX(-1);
+				transform: scaleX(-1);
+				filter: FlipH;
+				-ms-filter: "FlipH";
+			}
+		</style>
+	</head>
+	<h1 style="text-align: center;">Custom layer 3 UI</h1>
+	<p>This ASM package lets you have custom layer 3 user interface (currently at the moment, it contains a number input and a menu). This involves drawing the UI on layer 3 stripe image and utilizing RAMs so that the system knows
+	what the player is selecting.</p>
+	<h2>Table of Contents</h2>
+	<ul>
+		<li><a href="#TOC_Installation" id="TOC_back_Installation">Installation</li>
+		<li><a href="#TOC_Notes" id="TOC_back_Notes">Notes</li>
+	</ul>
+	<h2><a href="#TOC_back_Installation" id="TOC_Installation">^</a>Installation</h2>
+	
+	<h2><a href="#TOC_back_Notes" id="TOC_Notes">^</a>Notes</h2>
+	<ul>
+		<li>At the time of writing this, Uberasm tool will run the gamemode 14 first (which runs the code from <kbd>Uberasm_tool_files/gamemode/GM14.asm</kbd>, calls the code from <kbd>Uberasm_tool_files/library/CustomLayer3Menu.asm</kbd>), then the level codes.</li>
+		<li>The more tiles to update in a single frame, the more likely a vblank overflow can occur, which causes black bars to flicker at the top of the screen. So make sure the menu display isn't too large. I tried to spread out the tile write across multiple frames
+		to reduce the number of tiles to write in one frame.</li>
+	</ul>

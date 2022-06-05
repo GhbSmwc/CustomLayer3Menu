@@ -181,7 +181,7 @@ ProcessLayer3Menu:
 			.MenuSelectionStates
 				dw ..RespondToUserInput			;>!Freeram_CustomL3Menu_WritePhase == $00
 				dw ..RespondToUserInput			;>!Freeram_CustomL3Menu_WritePhase == $01
-				dw ..CloseMenuDeleteCursor		;>!Freeram_CustomL3Menu_WritePhase == $02
+				dw ..CloseMenuDeleteCursor		;>!Freeram_CustomL3Menu_WritePhase == $02 >NOTE: This are only set by ASM code outside this ASM file (such as a level code "LevelWarpMenu.asm").
 				dw ..CloseMenuDeleteOptions		;>!Freeram_CustomL3Menu_WritePhase == $03
 				dw ..CloseMenuDeleteScrollArrows	;>!Freeram_CustomL3Menu_WritePhase == $04
 			
@@ -194,14 +194,6 @@ ProcessLayer3Menu:
 					STA $01								;>$01 = Scroll position (before the change, again, used to check should the options need an update)
 					LDX #$00							;>Vertical menu
 					JSL DPadMoveCursorOnMenu
-					...IfPlayerCancels
-						LDA !Freeram_ControlBackup+1+!CustomL3Menu_WhichControllerDataToCancel	;\Check if player cancels
-						AND.b #!CustomL3Menu_ButtonCancel					;/
-						BEQ +
-						LDA #$02								;\Begin closing the menu
-						STA !Freeram_CustomL3Menu_WritePhase					;/
-						JMP .Done
-						+
 					...ClampTheScrollPosToBeWhereTheCursorIsAt
 						;We have to treat the positions here as if they're 16-bit so that we can have more than 127 possible options without
 						;potential glitches as well as when the cursor wraps the menu.

@@ -60,9 +60,9 @@ main:
 		BEQ +
 		JMP ..Confirm_Teleport_Done
 		+
-		LDA !Freeram_CustomL3Menu_WritePhase		;\Don't allow confirmation during menu closing
-		CMP #$02					;|
-		BCS ..Confirm_Teleport_Done			;/
+		LDA !Freeram_CustomL3Menu_WritePhase						;\Don't allow confirmation during menu closing
+		CMP #$02									;|
+		BCS ..Confirm_Teleport_Done							;/
 		LDA !Freeram_ControlBackup+1+!CustomL3Menu_WhichControllerDataToConfirm		;\Button to confirm
 		AND.b #!CustomL3Menu_ButtonConfirm						;|
 		BNE ..Confirm									;|
