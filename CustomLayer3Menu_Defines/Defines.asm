@@ -185,6 +185,10 @@ endif
   ; Meaning the code that perform certain actions (must run every frame when the menu is opened) when selecting an option and supplying
   ; the text must be done on its own ASM file. See example in Uberasm_tool_files/level/LevelWarpMenu.asm. The reason for this is to
   ; allow any type of menus.
+ !Freeram_CustomL3Menu_UnlockWarpMenuFlags = $87
+  ;^[1 byte] This is the unlock flags when using "CustomLayer3Menu/Uberasm_tool_files\level/LevelWarpMenu.asm". Format:
+  ;  76543210
+  ;   bits 0-7 corresponds to which screen exit to be enabled: 0 = locked, 1 = enabled.
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;Scratch RAM
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -270,8 +274,8 @@ endif
     !CustomL3Menu_MenuDisplay_XPos = 3
     !CustomL3Menu_MenuDisplay_YPos = 6
    
-   !CustomL3Menu_MenuDisplay_OptionCharLength = 9
-    ;^The maximum number of characters, including spaces for each option. NOTE: All strings must be this length
+   !CustomL3Menu_MenuDisplay_OptionCharLength = 13
+    ;^The maximum number of characters, including spaces for each option, in your entire game. NOTE: All strings must be this length
     ; so that when the menu scrolls, leftover tiles won't appear when a string gets replaced with a shorter
     ; string. This can be accomplished by adding spaces at the end if your strings are shorter.
     
