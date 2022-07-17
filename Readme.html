@@ -11,6 +11,11 @@
 				white-space: nowrap;
 			}
 			
+			table, th, td {
+			border: 1px solid white;
+			border-collapse: collapse;
+			}
+			
 			abbr{cursor: help;}
 			img.img-hor {
 				-moz-transform: scaleX(-1);
@@ -30,7 +35,50 @@
 		<li><a href="#TOC_Installation" id="TOC_back_Installation">Installation</li>
 		<li><a href="#TOC_Notes" id="TOC_back_Notes">Notes</li>
 	</ul>
+	<hr>
 	<h2><a href="#TOC_back_Installation" id="TOC_Installation">^</a>Installation</h2>
+	<ol>
+		<li>LM stuff</li>
+		<ol>
+			<li>Install the LM-related data into your game. These are in <kbd>LM_stuff</kbd> folder. The names should be obvious.</li>
+			<li>Now save.</li>
+		</ol>
+		<li>ASM stuff</li>
+		<ol>
+			<li>Defines</li>
+			<ol>
+				<li>The first thing you want to do is make necessary changes to the defines file in <kbd>CustomLayer3Menu_Defines/Defines.asm</kbd>. After you are done, have the FOLDER containing these files
+				copied and pasted in:
+					<ul>
+						<li>The main directory of GPS (folder should be in the same directory as <kbd>gps.exe</kbd>)</li>
+						<li>The main directory of uberasm tool (folder should be in the same directory as <kbd>UberASMTool.exe</kbd>)</li>
+					</ul>
+				If you wish to make changes after insertion, make sure you repeat this step so that all the tools will have up-to-date info
+				</li>
+			</ol>
+			<li>Custom blocks (Gopher Popcorn Stew)</li>
+			<ol>
+				<li>Have the text file in <kbd>CustomLayer3Menu/GPS blocks/BlockList.txt</kbd> and paste it in GPS's list file.</li>
+				<li>Paste several ASM files in the subdirectory (subfolder) of kbd>CustomLayer3Menu/GPS blocks/</kbd>. Folder names should be obvious where to put.</li>
+				<li>Run GPS to install the blocks into your game.</li>
+			</ol>
+			<li>Uberasm tool</li>
+			<ol>
+				<li>Same as the custom block above, insert accordingly.</li>
+				<li>However, you need to copy this for the list file:
+<table><tr><td><pre>; Level list. Valid values: 000-1FF.
+level:
+;105		LevelRandomizePasscode.asm
+105		LevelWarpMenu.asm</pre></td></tr></table>
+<table><tr><td><pre>; Game mode list. Valid values: 00-FF.
+gamemode:
+; Insert files here
+14		GM14.asm</pre></td></tr></table>
+				</li>
+				<li>Then insert into your game by running <kbd>UberASMTool.exe</kbd></li>
+			</ol>
+		</ol>
+	</ol>
 	
 	<h2><a href="#TOC_back_Notes" id="TOC_Notes">^</a>Notes</h2>
 	<ul>
