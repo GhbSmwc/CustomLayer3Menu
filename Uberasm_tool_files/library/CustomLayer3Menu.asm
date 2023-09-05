@@ -52,9 +52,9 @@ ProcessLayer3Menu:
 			;NOTE: $13FB also freezes teleportation, preventing a warp until this value is $00.
 		..SkipFreeze
 	.DpadTurbo
-		PHB
-		PHK
-		PLB
+		PHB						;\This is necessary because depending on the number of times you reinsert uberasm tool, the codes gets relocated every time you reinsert,
+		PHK						;|and potentially end up at a different bank, thus anything that refers to the table in 16-bit addressing ($xxxx indexed with X or Y),
+		PLB						;/could use the wrong bank
 		;This handles when the user holds down the D-pad long enough, will trigger a "repeat key press".
 		;Good for accessibility especially for huge menus.
 		LDA !Freeram_CustomL3Menu_DpadPulser		;\Clear out the pulse D-pad bits.
