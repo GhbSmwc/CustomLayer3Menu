@@ -52,6 +52,9 @@ ProcessLayer3Menu:
 			;NOTE: $13FB also freezes teleportation, preventing a warp until this value is $00.
 		..SkipFreeze
 	.DpadTurbo
+		PHB
+		PHK
+		PLB
 		;This handles when the user holds down the D-pad long enough, will trigger a "repeat key press".
 		;Good for accessibility especially for huge menus.
 		LDA !Freeram_CustomL3Menu_DpadPulser		;\Clear out the pulse D-pad bits.
@@ -95,10 +98,6 @@ ProcessLayer3Menu:
 			INX					;>Fast rate (X = $02)
 			
 			...Pulse
-				;TXA
-				;STA $7Fa000
-			
-			
 				LDA $13						;\Only every 2^n frames allows turbo pulsing
 				AND TurboPulseRates,x				;|
 				BNE ..UpdatePreviousInput			;/
@@ -122,6 +121,7 @@ ProcessLayer3Menu:
 			AND.b #%00001111				;|
 			ORA !Freeram_CustomL3Menu_DpadPulser		;|
 			STA !Freeram_CustomL3Menu_DpadPulser		;/
+		PLB
 	
 	.MenuTypeHandler
 		LDA !Freeram_CustomL3Menu_UIState
