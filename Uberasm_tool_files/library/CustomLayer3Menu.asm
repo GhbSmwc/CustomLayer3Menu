@@ -6,8 +6,7 @@
 
 ;Subroutines included here that can be used by any menu/UI types:
 ;-DPadMoveCursorOnMenu
-;-SetupStripeHeaderAndIndex
-;-FinishStripe
+;-SetupStripe
 
 	incsrc "../CustomLayer3Menu_Defines/Defines.asm"
 	table "../CustomLayer3Menu_Defines/ascii.txt"
@@ -96,6 +95,10 @@ ProcessLayer3Menu:
 			INX					;>Fast rate (X = $02)
 			
 			...Pulse
+				;TXA
+				;STA $7Fa000
+			
+			
 				LDA $13						;\Only every 2^n frames allows turbo pulsing
 				AND TurboPulseRates,x				;|
 				BNE ..UpdatePreviousInput			;/
@@ -290,8 +293,8 @@ ProcessLayer3Menu:
 							LDA !Freeram_CustomL3Menu_WritePhase			;\Draw cursor (so when the menu appears, and before the player moves the cusor, the cursor shows up and not only show the options)
 							BEQ .....WriteCurrentCursorPos				;/
 							LDA $07
-							AND.b #%00000001
-							BEQ .....CursorWriteDone
+							AND.b #%00000001					;\No need to move cursor if menu only scrolls.
+							BEQ .....CursorWriteDone				;/
 							.....ErasePreviousCursor
 								LDA $06						;\Y position
 								ASL						;|
@@ -299,13 +302,14 @@ ProcessLayer3Menu:
 								ADC #!CustomL3Menu_MenuDisplay_YPos+1		;|
 								STA $01						;/
 								JSR .SetupStripeInputs
-								JSL SetupStripeHeaderAndIndex
+								JSL SetupStripe
 								LDA #$FC					;\Tile number
 								STA.l $7F837D+4,x				;/
 								LDA.b #%00000000				;\Tile properties (YXPCCCTT)
 								STA.l $7F837D+4+1,x				;/
-								JSL FinishStripe
+								
 							.....WriteCurrentCursorPos
+								SEP #$30
 								LDA !Freeram_CustomL3Menu_CursorPos		;\Y position
 								SEC						;|
 								SBC !Freeram_CustomL3Menu_MenuScrollPos		;|>A = cursor position relative to scroll, currently
@@ -314,12 +318,12 @@ ProcessLayer3Menu:
 								ADC #!CustomL3Menu_MenuDisplay_YPos+1		;|
 								STA $01						;/
 								JSR .SetupStripeInputs
-								JSL SetupStripeHeaderAndIndex
+								JSL SetupStripe
 								LDA #$2E					;\Tile number
 								STA.l $7F837D+4,x				;/
 								LDA.b #%00101001				;\Tile properties (YXPCCCTT)
 								STA.l $7F837D+4+1,x				;/
-								JSL FinishStripe
+								SEP #$30
 							.....CursorWriteDone
 						....Options
 							LDA !Freeram_CustomL3Menu_WritePhase			;\Draw options (so when the menu appears, and before the player moves the cursor, the options shows up)
@@ -336,9 +340,9 @@ ProcessLayer3Menu:
 								; AddressOfString = (!Freeram_CustomL3Menu_MenuUptionBehavior,index * #!CustomL3Menu_MenuDisplay_OptionCharLength) + #!Freeram_CustomL3Menu_PasscodeCallBackSubroutine
 								;
 								LDY #$00						;>Loop counter (counts from 0 to !Freeram_CustomL3Menu_NumberOfDisplayedOptions), this is the position relative to scroll position
-								LDA.b #!CustomL3Menu_MenuDisplay_YPos+1			;\$0B: Current Y position
-								STA $0B							;/
-								......Loop
+								LDA.b #!CustomL3Menu_MenuDisplay_YPos+1			;\$0C: Current Y position
+								STA $0C							;/
+								......Loop ;Loop through all options displayed.
 									TYA
 									CMP !Freeram_CustomL3Menu_NumberOfDisplayedOptions	;\Loop until all displays are done.
 									BEQ +							;|
@@ -386,32 +390,32 @@ ProcessLayer3Menu:
 										LDA $2306
 									endif
 									ADC !Freeram_CustomL3Menu_PasscodeCallBackSubroutine
-									STA $08								;\$08-$0A: Address of the string data.
+									STA $09								;\$09-$0B: Address of the string data.
 									SEP #$20							;|
 									LDA !Freeram_CustomL3Menu_PasscodeCallBackSubroutine+2		;|
-									STA $0A								;/
+									STA $0B								;/
 									.......WriteOptionString
-										LDA $0B							;\Y position
+										LDA $0C							;\Y position
 										STA $01							;/
 										LDA.b #!CustomL3Menu_MenuDisplay_XPos+2			;\X pos
 										STA $00							;/
 										LDA #$05						;\Layer
 										STA $02							;/
 										STZ $03							;>D and RLE
-										LDA.b #!CustomL3Menu_MenuDisplay_OptionCharLength	;\Number of tiles
+										LDA.b #!CustomL3Menu_MenuDisplay_OptionCharLength-1	;\Number of tiles
 										STA $04							;|
 										STZ $05							;/
 										PHY
-										JSL SetupStripeHeaderAndIndex
+										JSL SetupStripe
 										LDY #$0000							;>Y had to be 16-bit since the striper had to be 16-bit X
 										PHX
 										........Loop
 											CPY.w #!CustomL3Menu_MenuDisplay_OptionCharLength
 											BCS ........CharDone
-											LDA [$08],y
-											STA $7F837D+4,x
-											LDA.b #!CustomL3Menu_MenuDisplay_Properties
-											STA $7F837D+5,x
+											LDA [$09],y						;\Write each character
+											STA $7F837D+4,x						;|
+											LDA.b #!CustomL3Menu_MenuDisplay_Properties		;|
+											STA $7F837D+5,x						;/
 											
 											.........Next
 												INX #2
@@ -420,12 +424,12 @@ ProcessLayer3Menu:
 											
 										........CharDone
 										PLX
-										JSL FinishStripe
+										SEP #$30
 										PLY
 									.......Next
-										INC $0B				;\Each option goes 2 lines down
-										INC $0B				;/
-										INY
+										INC $0C				;\Each option goes 2 lines down
+										INC $0C				;/
+										INY				;>Next displayed option
 										JMP ......Loop
 								......Done
 						....DisplayScrollArrows
@@ -441,18 +445,17 @@ ProcessLayer3Menu:
 								JSR .SetupStripeInputs			;>X, layer, D/RLE, and 1 tile
 								LDA.b #!CustomL3Menu_MenuDisplay_YPos	;\Y position
 								STA $01					;/
-								JSL SetupStripeHeaderAndIndex
+								JSL SetupStripe
 								LDY #$0000
-								LDA !Freeram_CustomL3Menu_MenuScrollPos
-								BEQ ......NoUpArrow
+								LDA !Freeram_CustomL3Menu_MenuScrollPos		;\If scroll position is at the top, don't display up arrow
+								BEQ ......NoUpArrow				;/
 								......UpArrow
 									INY #2
 								......NoUpArrow
 								REP #$20
 								LDA ShouldArrowAppear,y
-								STA $7F837D+4,x
-								SEP #$20
-								JSL FinishStripe
+								STA $7F837D+4,x					;>Write either a blank tile or an up arrow.
+								SEP #$30
 							.....CheckScrollDown
 								JSR .SetupStripeInputs			;>X, layer, D/RLE, and 1 tile
 								;Down_arrow_position = ((!Freeram_CustomL3Menu_NumberOfDisplayedOptions+1) * 2) + !CustomL3Menu_MenuDisplay_YPos
@@ -462,7 +465,7 @@ ProcessLayer3Menu:
 								CLC							;|
 								ADC.b #!CustomL3Menu_MenuDisplay_YPos			;|
 								STA $01							;/
-								JSL SetupStripeHeaderAndIndex
+								JSL SetupStripe
 								LDY #$0000
 								LDA !Freeram_CustomL3Menu_MenuScrollPos			;\Last displayed option
 								CLC							;|
@@ -474,10 +477,9 @@ ProcessLayer3Menu:
 								......NoDownArrow
 								REP #$20
 								LDA ShouldArrowAppear,y
-								ORA.w #%1000000000000000
-								STA $7F837D+4,x
-								SEP #$20
-								JSL FinishStripe
+								ORA.w #%1000000000000000				;>Y-flip the tile
+								STA $7F837D+4,x						;>Write either a blank tile or a down arrow.
+								SEP #$30
 							.....WriteOptionsDone
 								LDA #$01
 								STA !Freeram_CustomL3Menu_WritePhase
@@ -494,12 +496,11 @@ ProcessLayer3Menu:
 					ADC.b #!CustomL3Menu_MenuDisplay_YPos+1
 					STA $01
 					JSR .SetupStripeInputs		;>X position, layer 3, horizontal without RLE, and 1 tile.
-					JSL SetupStripeHeaderAndIndex
+					JSL SetupStripe
 					REP #$20
 					LDA #$38FC			;>Tile $FC, YXPCCCTT = $38 (%00111000), the blank tile
 					STA $7F837D+4,x
-					SEP #$20
-					JSL FinishStripe
+					SEP #$30
 					LDA #$03
 					STA !Freeram_CustomL3Menu_WritePhase
 					JMP .Done
@@ -522,19 +523,18 @@ ProcessLayer3Menu:
 						STA $02							;/
 						LDA.b #%01000000					;\Direction and RLE (RLE will be used)
 						STA $03							;/
-						LDA.b #!CustomL3Menu_MenuDisplay_OptionCharLength	;\Number of tiles
+						LDA.b #!CustomL3Menu_MenuDisplay_OptionCharLength-1	;\Number of tiles
 						STA $04							;|
 						STZ $05							;/
-						JSL SetupStripeHeaderAndIndex
+						JSL SetupStripe
 						REP #$20
 						LDA #$38FC			;>Tile $FC, YXPCCCTT = $38 (%00111000), the blank tile
 						STA $7F837D+4,x
-						SEP #$20
-						JSL FinishStripe
+						SEP #$30
 						PLY
 						....Next
-							INC $06
-							INC $06
+							INC $06						;\Move two lines down
+							INC $06						;/
 							INY
 							BRA ...Loop
 						
@@ -551,15 +551,14 @@ ProcessLayer3Menu:
 						LDA #$05				;\Layer 3
 						STA $02					;/
 						STZ $03					;>Horizontal, no RLE
-						LDA #$01				;\1 tile
-						STA $04					;|
+						;LDA #$01				;\1 tile
+						STZ $04					;|
 						STZ $05					;/
-						JSL SetupStripeHeaderAndIndex
+						JSL SetupStripe
 						REP #$20
 						LDA #$38FC			;>Tile $FC, YXPCCCTT = $38 (%00111000), the blank tile
 						STA $7F837D+4,x
-						SEP #$20
-						JSL FinishStripe
+						SEP #$30
 					...DownArrow
 						LDA.b #!CustomL3Menu_MenuDisplay_XPos			;\XY position
 						STA $00							;|
@@ -572,15 +571,15 @@ ProcessLayer3Menu:
 						LDA #$05						;\Layer 3
 						STA $02							;/
 						STZ $03							;>Horizontal, no RLE
-						LDA #$01						;\1 tile
-						STA $04							;|
+						;LDA #$01						;\1 tile
+						STZ $04							;|
 						STZ $05							;/
-						JSL SetupStripeHeaderAndIndex
+						JSL SetupStripe
 						REP #$20
 						LDA #$38FC			;>Tile $FC, YXPCCCTT = $38 (%00111000), the blank tile
 						STA $7F837D+4,x
-						SEP #$20
-						JSL FinishStripe
+						SEP #$30
+						;JSL FinishStripe
 					..ExitMenuMode
 						LDA #$01				;\Go back to normal
 						STA !Freeram_CustomL3Menu_UIState	;/
@@ -594,7 +593,7 @@ ProcessLayer3Menu:
 				LDA #$05					;\Layer 3
 				STA $02						;/
 				STZ $03						;>Direction and RLE
-				LDA #$01					;\Number of tiles
+				LDA #$00					;\Number of tiles
 				STA $04						;|
 				STZ $05						;/
 				RTS
@@ -651,15 +650,15 @@ ProcessLayer3Menu:
 					LDA.b #%01000000				;\Direction and RLE
 					STA $03						;/
 					LDA !Freeram_CustomL3Menu_NumberOfCursorPositions	;\Number of cursor positions = number of digits the user can adjust
-					INC							;|
+					;INC							;|
 					STA $04							;|
 					STZ $05							;/
-					JSL SetupStripeHeaderAndIndex			;>X (16-bit) = Length of stripe data
+					JSL SetupStripe						;>X (16-bit) = Length of stripe data
 					REP #$30
 					LDA #$38FC				;\Blank tile
 					STA.l $7F837D+4,x			;/
 					SEP #$30
-					JSL FinishStripe
+					SEP #$30
 					LDA !Freeram_CustomL3Menu_WritePhase	;\Next phase
 					INC					;|
 					STA !Freeram_CustomL3Menu_WritePhase	;/
@@ -688,7 +687,7 @@ ProcessLayer3Menu:
 					BCC ...AdjustNumber			;>Don't display cursor during mid-moving (during default placement of the cursor graphic)
 					JSR WriteCursor
 					...AdjustNumber
-					LDA !Freeram_CustomL3Menu_CursorPos	;\Depending on your cursor positiuon adjust what number to increase/decrease
+					LDA !Freeram_CustomL3Menu_CursorPos	;\Depending on your cursor position adjust what number to increase/decrease
 					TAX					;/
 					;LDA !Freeram_ControlBackup+1				;\Controller: byetUDLR -> 00byetUD -> 000000UD into the Y index
 					;LSR #2							;|to determine to increment or decrement it
@@ -768,10 +767,9 @@ ProcessLayer3Menu:
 				STA $02					;/
 				STZ $03					;>Direction and RLE
 				LDA !Freeram_CustomL3Menu_NumberOfCursorPositions	;\Number of cursor positions or digits
-				INC							;|
 				STA $04							;|
 				STZ $05							;/
-				JSL SetupStripeHeaderAndIndex		;>X (16-bit) = Length of stripe data
+				JSL SetupStripe				;>X (16-bit) = Length of stripe data
 				LDA #$7F				;\$00-$02: A RAM address to safely write stripe image
 				STA $02					;|
 				REP #$21				;|
@@ -802,10 +800,10 @@ ProcessLayer3Menu:
 							STA $00			;/
 							INX			;\Loop until all tiles written
 							CPX $04			;|
+							BEQ ..Loop		;|
 							BCC ..Loop		;/
 					PLX			;>Restore stripe length
-					SEP #$20		;\Finish stripe
-					JSL FinishStripe	;/
+					SEP #$30		;>Finish stripe
 				RTS
 		WriteDigits:
 			.DisplayDigits
@@ -817,12 +815,12 @@ ProcessLayer3Menu:
 				STA $02					;/
 				STZ $03					;>Direction and RLE
 				LDA !Freeram_CustomL3Menu_NumberOfCursorPositions	;\Number of cursor positions = number of digits the user can adjust
-				INC							;|
+				;INC							;|
 				STA $04							;|
 				STA $06							;|
 				STZ $05							;|
 				STZ $07							;/
-				JSL SetupStripeHeaderAndIndex		;>X (16-bit): Stripe length
+				JSL SetupStripe				;>X (16-bit): Stripe index
 				
 				LDA #$7F				;\$00-$02 Tile numbers address (assuming this increments by 2)
 				STA $02					;|$03-$05 Tile properties address (assuming this increments by 2)
@@ -836,7 +834,6 @@ ProcessLayer3Menu:
 				ADC.w #$7F837D+4+1			;|
 				STA $03					;|
 				SEP #$20				;/
-				PHX					;>Preserve number of bytes (stripe length)
 				LDX #$0000
 				..Loop
 					...Write
@@ -845,28 +842,20 @@ ProcessLayer3Menu:
 						LDA.b #%00111000				;>Properties (for all 0-9 digits)
 						STA [$03]					
 					...Next
-						REP #$21	;\Next tile
-						LDA $00		;|
-						ADC #$0002	;|
-						STA $00		;|
-						LDA $03		;|
-						CLC		;|
-						ADC #$0002	;|
-						STA $03		;|
-						SEP #$20	;/
-						INX		;\Loop until all tiles written
-						CPX $06		;|
-						BEQ ..Loop	;|
-						BCC ..Loop	;/
-				PLX				;>Restore number of bytes (stripe length)
-				STZ $03				;>RLE
-				REP #$20
-				LDA !Freeram_CustomL3Menu_NumberOfCursorPositions	;\Number of tiles
-				AND #$00FF						;|
-				INC							;|
-				STA $04							;/
-				SEP #$20
-				JSL FinishStripe
+						REP #$21						;\Next tile
+						LDA $00							;|
+						ADC #$0002						;|
+						STA $00							;|
+						LDA $03							;|
+						CLC							;|
+						ADC #$0002						;|
+						STA $03							;|
+						SEP #$20						;/
+						INX							;\Loop until all tiles written
+						TXA
+						CMP !Freeram_CustomL3Menu_NumberOfCursorPositions
+						BEQ ..Loop
+						BCC ..Loop						;/
 				SEP #$30
 				RTS
 	;--------------------------------------------------------------------------------
@@ -1025,27 +1014,39 @@ DPadMoveCursorOnMenu2D:
 		CLC
 		RTL
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;Easy stripe setup-er. Gets index of stripe table and sets up the header.
-;Input:
+;Easy stripe setup-er 2.1. Sets up stripe header, Updates length of stripe,
+;and writes the terminating byte. You only need to write the tile data
+;afterwards.
+;
 ;-$00: X position (%00XXXXXX, only bits 0-5 used, ranges from 0-63 ($00-$3F))
 ;-$01: Y position (%00YYYYYY, only bits 0-5 used, ranges from 0-63 ($00-$3F))
 ;-$02: What layer:
-;       $02 = Layer 1
-;       $03 = Layer 2
-;       $05 = Layer 3
-;-$03: Direction and RLE: %DR00000000
-;       D = Direction: 0 = horizontal (rightwards), 1 = vertical (downwards)
-;       R = RLE: 0 = no repeat, 1 = repeat
-;-$04 to $05 (16-bit): Number of tiles.
+;  $02 = Layer 1
+;  $03 = Layer 2
+;  $05 = Layer 3
+;-$03: Direction and RLE: %DR000000
+;  D = Direction: 0 = horizontal (rightwards), 1 = vertical (downwards)
+;  R = RLE: 0 = no (manually write different tiles), 1 = yes (write one
+;   tile multiple times, based on input $04-$05).
+;-$04 to $05 (16-bit): Number of tiles, minus 1 (a value of 2 here means 3
+;  tiles). (If RLE is used, this is how many times a tile is repeated).
 ;Output:
-;-X register (16-bit, XY registers are 16-bit): The index position to write stripe data
+;-$7F837B-$7F837C: Updated length of stripe data.
+;-X register (16-bit, XY registers are 16-bit): The index position of where
+; to write tile data (starting at $7F837D+4,x)
+;Destroyed:
+;-$06-$08: Used when not using RLE, to calculate the terminating byte location.
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;note to self
+; $7F837B = Length of stripe, counting header and tile data, but not the terminating byte.
 ; $7F837D+0,x = EHHHYXyy
 ; $7F837D+1,x = yyyxxxxx
 ; $7F837D+2,x = DRllllll
 ; $7F837D+3,x = LLLLLLLL
-SetupStripeHeaderAndIndex:
+; $7F837D+4,x = Tile, number
+; $7F837D+5,x = Tile properties
+; $7F837D+6,x = Terminating byte
+SetupStripe:
 	.GetWhereToSafelyWriteStripe
 		REP #$30		;>16-bit AXY
 		LDA $7F837B		;\LDX $XXXXXX does not exist so we need LDA $XXXXXX : TAX to
@@ -1097,82 +1098,57 @@ SetupStripeHeaderAndIndex:
 		BEQ ..NoRLE
 		
 		..RLE
+			REP #$21		;REP #$21 is 8-bit A with carry cleared
+			TXA			;\Update length of stripe. 6 because 2 bytes of 1 tile plus 4 bytes of header)
+			ADC #$0006		;|
+			STA $7F837B		;/
+			SEP #$20		;>8-bit A
+			LDA #$FF		;\Terminating byte
+			STA $7F837D+6,x		;/
 			REP #$20
 			LDA $04			;\NumberOfBytes = (NumberOfTiles-1)*2
-			DEC A			;|
+			INC
 			ASL			;|
 			SEP #$20		;/
 			BRA ..Write
 		..NoRLE
+			REP #$21		;REP #$21 is 8-bit A with carry cleared
+			LDA $04			;\4+(NumberOfTiles*2)...
+			INC			;|
+			ASL			;|
+			CLC			;|
+			ADC #$0004		;/
+			CLC			;\plus the current length
+			ADC $7F837B		;/
+			STA $7F837B		;>And that is our new length
+			SEP #$20		;>8-bit AXY
+			LDA #$7F		;\Bank byte
+			STA $08			;/
+			REP #$20		;\4+(NumberOfTiles*2)...
+			LDA $04			;|
+			INC			;|
+			ASL			;|
+			CLC			;|>Just in case
+			ADC.w #$837D+4		;|
+			STA $06			;/
+			TXA			;\Plus index ($7F837D+(NumberOfBytesSinceHeader),x is equivalent to $7F837D + NumberOfBytesSinceHeader + X_index)
+			CLC			;|
+			ADC $06			;|
+			STA $06			;/
+			SEP #$20
+			LDA #$FF		;\Write terminate byte here.
+			STA [$06]		;/
 			REP #$20
 			LDA $04			;\NumberOfBytes = (NumberOfTiles*2)-1
+			INC			;|
 			ASL			;|
 			DEC			;|
 			SEP #$20		;/
 		..Write
-			STA $7F837D+3,x		;\Write
+			STA $7F837D+3,x		;\Write length bits
 			XBA			;|
 			AND.b #%00111111	;|
 			ORA $7F837D+2,x		;|
 			STA $7F837D+2,x		;/
 	.Done
 		RTL
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;Finish stripe write
-;
-;This writes the terminating byte $FF and updates the length of stripe.
-;
-;Input:
-;-$03: Direction and RLE: %DR00000000. This routine only checks the RLE
-;      due to the length formula varies depending if using RLE or not.
-;-$04 to $05: Number of tiles
-;-X register (16-bit): Index length of stripe table
-;Output:
-;-$7F837B to $7F837C: New length of stripe
-;Destroyed:
-;-$00 to $02: Address of where to write the terminating byte based
-;             on the indexing and number of tiles.
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-FinishStripe:
-	.UpdateLength
-		LDA $03
-		AND.b #%01000000
-		BEQ ..NoRLE
-		
-		..RLE
-			REP #$21			;REP #$21 is 8-bit A with carry cleared
-			TXA				;\Update length of stripe. 6 because 2 bytes of 1 tile plus 4 bytes of header)
-			ADC #$0006			;|
-			STA $7F837B			;/
-			SEP #$30			;>8-bit AXY
-			...WhereToWriteTerminateByte
-				LDA #$FF
-				STA $7F837D+6,x
-			RTL
-		..NoRLE
-			REP #$21			;REP #$21 is 8-bit A with carry cleared
-			LDA $04				;\4+(NumberOfTiles*2)...
-			ASL				;|
-			CLC				;|
-			ADC #$0004			;/
-			CLC				;\plus the current length
-			ADC $7F837B			;/
-			STA $7F837B			;>And that is our new length
-			SEP #$30			;>8-bit AXY
-			...WhereToWriteTerminateByte
-				LDA #$7F		;\Bank byte
-				STA $02			;/
-				REP #$20		;\4+(NumberOfTiles*2)...
-				LDA $04			;|
-				ASL			;|
-				CLC			;|>Just in case
-				ADC.w #$837D+4		;|
-				STA $00			;/
-				TXA			;\Plus index ($7F837D+(NumberOfBytesSinceHeader),x is equivilant to $7F837D + NumberOfBytesSinceHeader + X_index)
-				CLC			;|
-				ADC $00			;|
-				STA $00			;/
-				SEP #$20
-				LDA #$FF		;\Write terminate byte here.
-				STA [$00]		;/
-			RTL
