@@ -136,7 +136,7 @@ ProcessLayer3Menu:
 		dw ExitMenuEnablePlayerMovement		;>!Freeram_CustomL3Menu_UIState = $01 (X = $02)
 		dw MenuSelection			;>!Freeram_CustomL3Menu_UIState = $02 (X = $04)
 		dw NumberInput				;>!Freeram_CustomL3Menu_UIState = $03 (X = $06)
-		dw ValueAdjustMenu			;>!Freeram_CustomL3Menu_UIState = $04 (X = $08)
+		dw StringInput				;>!Freeram_CustomL3Menu_UIState = $04 (X = $08)
 	;--------------------------------------------------------------------------------
 	;These are codes that handle the behavior of each menu types
 	;$00 contains the index of what menu type of the current menu.
@@ -168,6 +168,9 @@ ProcessLayer3Menu:
 		MenuSelectionBitwiseMenuScroll:
 			db %00000000
 			db %00000010
+		MenuSelectionCursorBlink: ;>Tiles used for cursor to blink on "MenuSelection". Format: $PPNN -> PP = properties (YXPCCCTT), NN = tile number
+			dw $292E		;
+			dw $38FC		;
 		ShouldArrowAppear:
 			dw $38FC		;>Blank tile and properties when the menu position is at the top or when the menu is at the bottom
 			dw (!CustomL3Menu_MenuDisplay_ScrollArrowProperties<<8)|!CustomL3Menu_MenuDisplay_ScrollArrowNumber	;>Tile number and properties for when the menu can scroll up or down.
@@ -294,7 +297,7 @@ ProcessLayer3Menu:
 							BEQ .....WriteCurrentCursorPos				;/
 							LDA $07
 							AND.b #%00000001					;\No need to move cursor if menu only scrolls.
-							BEQ .....CursorWriteDone				;/
+							BEQ .....WriteCurrentCursorPos				;/
 							.....ErasePreviousCursor
 								LDA $06						;\Y position
 								ASL						;|
@@ -303,9 +306,9 @@ ProcessLayer3Menu:
 								STA $01						;/
 								JSR .SetupStripeInputs
 								JSL SetupStripe
-								LDA #$FC					;\Tile number
+								LDA #$FC					;\Blank tile number
 								STA.l $7F837D+4,x				;/
-								LDA.b #%00000000				;\Tile properties (YXPCCCTT)
+								LDA.b #%00111000				;\Tile properties (YXPCCCTT)
 								STA.l $7F837D+4+1,x				;/
 								
 							.....WriteCurrentCursorPos
@@ -318,13 +321,31 @@ ProcessLayer3Menu:
 								ADC #!CustomL3Menu_MenuDisplay_YPos+1		;|
 								STA $01						;/
 								JSR .SetupStripeInputs
+								LDA $13
+								AND.b #%00011111
+								BEQ ......WriteOnStripe
+								CMP #$17
+								BEQ ......WriteOnStripe
+								BRA .....CursorWriteDone
+								
+								......WriteOnStripe
 								JSL SetupStripe
-								LDA #$2E					;\Tile number
+								LDY #$0000					;\Blinking cursor, using global frame counter, MOD 32 (number wraparound 0-31)
+								LDA $13						;|at 0 (to 22), show cursor
+								AND.b #%00011111				;|at 23 (to 31), show blank tile
+								BEQ ......BlinkShowCursor			;|
+								CMP #$17					;|
+								BEQ ......BlinkNoShowCursor			;/
+								BRA .....CursorWriteDone			;>For most frames, don't draw that is already drawn to avoid vblank issues
+								......BlinkNoShowCursor
+									INY #2
+								......BlinkShowCursor
+								REP #$20
+								wdm
+								LDA MenuSelectionCursorBlink,y			;\Tile number
 								STA.l $7F837D+4,x				;/
-								LDA.b #%00101001				;\Tile properties (YXPCCCTT)
-								STA.l $7F837D+4+1,x				;/
-								SEP #$30
 							.....CursorWriteDone
+								SEP #$30
 						....Options
 							LDA !Freeram_CustomL3Menu_WritePhase			;\Draw options (so when the menu appears, and before the player moves the cursor, the options shows up)
 							BEQ .....WriteOptions					;/
@@ -631,7 +652,7 @@ ProcessLayer3Menu:
 					STA !Freeram_CustomL3Menu_WritePhase
 					JMP .Done
 				..WriteCursor
-					JSR WriteCursor
+					JSR WriteNumberAdjusterCursor
 					LDA #$02
 					STA !Freeram_CustomL3Menu_WritePhase
 					JMP .Done
@@ -685,7 +706,7 @@ ProcessLayer3Menu:
 					LDX #$01				;\Moving cursor left and right switches which digit the player wants to adjust
 					JSL DPadMoveCursorOnMenu		;/
 					BCC ...AdjustNumber			;>Don't display cursor during mid-moving (during default placement of the cursor graphic)
-					JSR WriteCursor
+					JSR WriteNumberAdjusterCursor
 					...AdjustNumber
 					LDA !Freeram_CustomL3Menu_CursorPos	;\Depending on your cursor position adjust what number to increase/decrease
 					TAX					;/
@@ -757,7 +778,7 @@ ProcessLayer3Menu:
 			db $01		;>%00001000 (up pressed)
 			db $00		;>%00001100 (both pressed)
 			
-		WriteCursor:
+		WriteNumberAdjusterCursor:
 			.DisplayCursor
 				LDA.b #!CustomL3Menu_NumberInput_XPos	;\XY pos
 				STA $00					;|
@@ -859,9 +880,15 @@ ProcessLayer3Menu:
 				SEP #$30
 				RTS
 	;--------------------------------------------------------------------------------
-	;Value adjust menu
+	;String input
+	;[A B C D E F G H I J ]
+	;[                    ]
+	;[K L M N O P Q R S T ]
+	;[                    ]
+	;[U V W X Y Z         ]
+	;[                    ]
 	;--------------------------------------------------------------------------------
-		ValueAdjustMenu:
+		StringInput:
 			RTL
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;Cursor move handler
