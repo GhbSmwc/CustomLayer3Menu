@@ -29,6 +29,9 @@ ProcessLayer3Menu:
 	STA !Freeram_CustomL3Menu_DpadHoldTimer		;/the timer will pick up right where it left off and starts out with full speed.
 	RTL
 	+
+	LDA !Freeram_CustomL3Menu_CursorBlinkTimer	;\Handle blinking timer.
+	INC						;|
+	STA !Freeram_CustomL3Menu_CursorBlinkTimer	;/
 	
 	.HandleFrozen
 		;CMP #$XX		;\If you want some UI states to not freeze time,
@@ -321,7 +324,7 @@ ProcessLayer3Menu:
 								ADC #!CustomL3Menu_MenuDisplay_YPos+1		;|
 								STA $01						;/
 								JSR .SetupStripeInputs
-								LDA $13
+								LDA !Freeram_CustomL3Menu_CursorBlinkTimer
 								AND.b #%00011111
 								BEQ ......WriteOnStripe
 								CMP #$17
@@ -330,8 +333,8 @@ ProcessLayer3Menu:
 								
 								......WriteOnStripe
 								JSL SetupStripe
-								LDY #$0000					;\Blinking cursor, using global frame counter, MOD 32 (number wraparound 0-31)
-								LDA $13						;|at 0 (to 22), show cursor
+								LDY #$0000					;\Blinking cursor, MOD 32 (number wraparound 0-31)
+								LDA !Freeram_CustomL3Menu_CursorBlinkTimer	;|at 0 (to 22), show cursor
 								AND.b #%00011111				;|at 23 (to 31), show blank tile
 								BEQ ......BlinkShowCursor			;|
 								CMP #$17					;|
@@ -341,7 +344,6 @@ ProcessLayer3Menu:
 									INY #2
 								......BlinkShowCursor
 								REP #$20
-								wdm
 								LDA MenuSelectionCursorBlink,y			;\Tile number
 								STA.l $7F837D+4,x				;/
 							.....CursorWriteDone
@@ -940,6 +942,9 @@ DPadMoveCursorOnMenu:
 	.SFX
 		LDA #!CustomL3Menu_SoundEffectNumber_CursorMove
 		STA !CustomL3Menu_SoundEffectPort_CursorMove
+	.CursorVisible
+		LDA #$00
+		STA !Freeram_CustomL3Menu_CursorBlinkTimer
 	.SetCarry
 		SEC
 		RTL

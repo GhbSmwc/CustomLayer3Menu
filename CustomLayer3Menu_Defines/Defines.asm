@@ -189,6 +189,11 @@ endif
   ;^[1 byte] This is the unlock flags when using "CustomLayer3Menu/Uberasm_tool_files\level/LevelWarpMenu.asm". Format:
   ;  76543210
   ;   bits 0-7 corresponds to which screen exit to be enabled: 0 = locked, 1 = enabled.
+ 
+ !Freeram_CustomL3Menu_CursorBlinkTimer = $1B91|!addr
+  ;^[1 byte] frame counter for blinking cursor. By default, this is the same as SMW's $7E1B91, not used at all outside of vanilla SMW menus.
+  ; Both SMW and this ASM resource need this rather than to use RAM $13 (global frame counter) so that the cursor blink state will always show
+  ; when the cursor moves (each time the cursor moves, reset this timer).
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;Scratch RAM
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
