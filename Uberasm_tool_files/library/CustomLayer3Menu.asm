@@ -707,40 +707,40 @@ ProcessLayer3Menu:
 					BNE ..ConfirmOrCancel
 					LDX #$01				;\Moving cursor left and right switches which digit the player wants to adjust
 					JSL DPadMoveCursorOnMenu		;/
-					BCC ...AdjustNumber			;>Don't display cursor during mid-moving (during default placement of the cursor graphic)
+					BCC ...AdjustNumber			;>Don't (re)write cursor during mid-moving (during default placement of the cursor graphic)
 					JSR WriteNumberAdjusterCursor
 					...AdjustNumber
-					LDA !Freeram_CustomL3Menu_CursorPos	;\Depending on your cursor position adjust what number to increase/decrease
-					TAX					;/
-					;LDA !Freeram_ControlBackup+1				;\Controller: byetUDLR -> 00byetUD -> 000000UD into the Y index
-					;LSR #2							;|to determine to increment or decrement it
-					;AND.b #%00000011					;|
-					LDA !Freeram_CustomL3Menu_DpadPulser			;|>udlrUDLR -> 000000ud
-					LSR #6
-					TAY							;/
-					LDA !Freeram_CustomL3Menu_DigitPasscodeUserInput,x	;\Take current digit and increment and decrement
-					CLC							;|
-					ADC IncrementDecrementNumberUI,y			;/
-					CMP #$FF						;\If digit increment/decrement outside the 0-9 range, wrap it.
-					BEQ ...WrapTo9						;|
-					CMP #$0A						;|
-					BCS ...WrapTo0						;|
-					BRA ...In0To9Range					;/
-					...WrapTo9
-						LDA #$09
-						BRA ...In0To9Range
-					...WrapTo0
-						LDA #$00
-					...In0To9Range
-					STA !Freeram_CustomL3Menu_DigitPasscodeUserInput,x	;>Adjust digit.
-					LDA IncrementDecrementNumberUI,y			;\No increment, no sound (if both up and down are set or clear)
-					BEQ ...NoChange						;/
-					...Change
-						LDA #!CustomL3Menu_SoundEffectNumber_NumberAdjust
-						STA !CustomL3Menu_SoundEffectPort_NumberAdjust
-						JSR WriteDigits
-					...NoChange
-						BRA .Done
+						LDA !Freeram_CustomL3Menu_CursorPos	;\Depending on your cursor position adjust what number to increase/decrease
+						TAX					;/
+						;LDA !Freeram_ControlBackup+1				;\Controller: byetUDLR -> 00byetUD -> 000000UD into the Y index
+						;LSR #2							;|to determine to increment or decrement it
+						;AND.b #%00000011					;|
+						LDA !Freeram_CustomL3Menu_DpadPulser			;|>udlrUDLR -> 000000ud
+						LSR #6
+						TAY							;/
+						LDA !Freeram_CustomL3Menu_DigitPasscodeUserInput,x	;\Take current digit and increment and decrement
+						CLC							;|
+						ADC IncrementDecrementNumberUI,y			;/
+						CMP #$FF						;\If digit increment/decrement outside the 0-9 range, wrap it.
+						BEQ ....WrapTo9						;|
+						CMP #$0A						;|
+						BCS ....WrapTo0						;|
+						BRA ....In0To9Range					;/
+						....WrapTo9
+							LDA #$09
+							BRA ...In0To9Range
+						....WrapTo0
+							LDA #$00
+						....In0To9Range
+						STA !Freeram_CustomL3Menu_DigitPasscodeUserInput,x	;>Adjust digit.
+						LDA IncrementDecrementNumberUI,y			;\No increment, no sound (if both up and down are set or clear)
+						BEQ ....NoChange					;/
+						....Change
+							LDA #!CustomL3Menu_SoundEffectNumber_NumberAdjust
+							STA !CustomL3Menu_SoundEffectPort_NumberAdjust
+							JSR WriteDigits
+						....NoChange
+							BRA .Done
 				..ConfirmOrCancel
 					LDA #$03								;\Clear menu on next frame.
 					STA !Freeram_CustomL3Menu_WritePhase					;/

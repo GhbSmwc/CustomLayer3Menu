@@ -91,7 +91,7 @@ endif
   ;
   ; -To prevent the cursor from going past the last item.
   ;
-  ; -To make the cusor jump to the last item when the user moves the cursor past the first item.
+  ; -To make the cursor jump to the last item when the user moves the cursor past the first item.
   ;
   ; -For passcode digit mode, this is the number of digits to use (a 4-digit passcode means this have the value of #$03).
 
@@ -179,7 +179,7 @@ endif
  !Freeram_CustomL3Menu_MenuUptionBehavior = $7F0000
   ;^[Number_of_bytes = Highest_number_of_options_in_game] Menu option ID, This contains what text, status and behaviors of each option
   ; to use. Each byte here for each option in the menu in the same order (first byte corresponds to the first option, 2nd on 2nd and so
-  ; on). The number of bytes taken here is the menu having the highest number of options in your entire game.
+  ; on). The number of bytes taken here is the menu having the highest number of options in your entire game of all menus.
   ;
   ; Do note that the behaviors that each option perform when selected and the text itself are separate from Uberasm_tool_files/library/CustomLayer3Menu.asm
   ; Meaning the code that perform certain actions (must run every frame when the menu is opened) when selecting an option and supplying
