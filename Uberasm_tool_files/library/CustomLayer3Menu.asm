@@ -677,14 +677,14 @@ ProcessLayer3Menu:
 					STZ $05						;/
 					JSL SetupStripe
 					REP #$30
-					LDA #$2D80
+					LDA.w #(!CustomL3Menu_MenuDisplay_ScrollArrowProperties<<8)|!CustomL3Menu_MenuDisplay_ScrollArrowNumber
 					STA $7F837D+4,x
 					SEP #$30
 					INC $01						;\2 tiles down
 					INC $01						;/
 					JSL SetupStripe
 					REP #$30
-					LDA #$AD80
+					LDA.w #((!CustomL3Menu_MenuDisplay_ScrollArrowProperties|$80)<<8)|!CustomL3Menu_MenuDisplay_ScrollArrowNumber
 					STA $7F837D+4,x
 					SEP #$30
 					LDA #$02
