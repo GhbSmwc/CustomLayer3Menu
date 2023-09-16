@@ -171,9 +171,12 @@ ProcessLayer3Menu:
 		MenuSelectionBitwiseMenuScroll:
 			db %00000000
 			db %00000010
-		MenuSelectionCursorBlink: ;>Tiles used for cursor to blink on "MenuSelection". Format: $PPNN -> PP = properties (YXPCCCTT), NN = tile number
-			dw $292E		;
-			dw $38FC		;
+		MenuSelectionCursorBlink:	;>Tiles used for cursor to blink on "MenuSelection". Format: $PPNN -> PP = properties (YXPCCCTT), NN = tile number
+			dw $292E		;>Tile to use when cursor links frame 1
+			dw $38FC		;>Tile to use when cursor links frame 2
+		NumberAdjusterSelectionCursorBlink:	;>Same as above but for number adjuster
+			dw (!CustomL3Menu_MenuDisplay_ScrollArrowProperties<<8)|!CustomL3Menu_MenuDisplay_ScrollArrowNumber	;>Tile to use when cursor links frame 1
+			dw $38FC												;>Tile to use when cursor links frame 2
 		ShouldArrowAppear:
 			dw $38FC		;>Blank tile and properties when the menu position is at the top or when the menu is at the bottom
 			dw (!CustomL3Menu_MenuDisplay_ScrollArrowProperties<<8)|!CustomL3Menu_MenuDisplay_ScrollArrowNumber	;>Tile number and properties for when the menu can scroll up or down.
@@ -344,7 +347,7 @@ ProcessLayer3Menu:
 									INY #2
 								......BlinkShowCursor
 								REP #$20
-								LDA MenuSelectionCursorBlink,y			;\Tile number
+								LDA MenuSelectionCursorBlink,y			;\Tile
 								STA.l $7F837D+4,x				;/
 							.....CursorWriteDone
 								SEP #$30
@@ -627,14 +630,7 @@ ProcessLayer3Menu:
 			PHB					;>Preserve bank
 			PHK					;\Change bank so that $xxxx,y works correctly
 			PLB					;/
-			;NMI overflow prevention. Works like this:
-			;There are 3 phases of how this stripe writer writes
-			;Phase 1 (!Freeram_CustomL3Menu_WritePhase = #$00): Only write the digits, set the phase to #$01 and terminate the code.
-			;Phase 2 (phase = #$01): Only write the cursor, set the phase to #$02, and terminate the code.
-			;Phase 3 (phase = #$02): Allow the player to make inputs to the cursor and adjust the number, and also update the tiles when they're changed.
-			;Phase 4 (phase = #$03): Clears out the tiles when the player exits out of the passcode UI.
-			;
-			;Phase 1 & 2 also ignores player input since when the player input data, it updates the tiles, but we already did it here.
+			;NMI overflow prevention. During the inital phase, the first few frames it write a small part of the number UI.
 			LDA !Freeram_CustomL3Menu_WritePhase
 			ASL
 			TAX
@@ -646,15 +642,51 @@ ProcessLayer3Menu:
 				dw ..RespondToUserInput			;>!Freeram_CustomL3Menu_WritePhase = $02 (X = $04)
 				dw ..ExitingNumberUIPhase		;>!Freeram_CustomL3Menu_WritePhase = $03 (X = $06)
 				dw ..ExitingNumberUIPhase		;>!Freeram_CustomL3Menu_WritePhase = $04 (X = $08)
-				dw .Done				;>!Freeram_CustomL3Menu_WritePhase = $05 (X = $0A)
+				dw ..ExitingNumberUIPhase		;>!Freeram_CustomL3Menu_WritePhase = $05 (X = $0A)
+				dw .Done				;>!Freeram_CustomL3Menu_WritePhase = $06 (X = $0B)
 				
 				..WriteDigits
-					JSR WriteDigits
+					LDA.b #!CustomL3Menu_NumberInput_XPos		;\X pos
+					STA $00						;/
+					LDA.b #!CustomL3Menu_NumberInput_YPos+1		;\Y pos
+					STA $01						;/
+					LDA #$05					;\Layer
+					STA $02						;/
+					LDA.b #%01000000				;\Repeat just the zeroes
+					STA $03						;/
+					LDA !Freeram_CustomL3Menu_NumberOfCursorPositions	;\Number of tiles
+					STA $04							;|
+					STZ $05							;/
+					JSL SetupStripe
+					REP #$30
+					LDA #$3800
+					STA $7F837D+4,x
+					SEP #$30
 					LDA #$01
 					STA !Freeram_CustomL3Menu_WritePhase
 					JMP .Done
 				..WriteCursor
-					JSR WriteNumberAdjusterCursor
+					LDA.b #!CustomL3Menu_NumberInput_XPos		;\X pos
+					STA $00						;/
+					LDA.b #!CustomL3Menu_NumberInput_YPos		;\Y pos
+					STA $01						;/
+					LDA #$05					;\Layer
+					STA $02						;/
+					STZ $03						;>Horizontal and no RLE (1 tile)
+					STZ $04						;\1 tile
+					STZ $05						;/
+					JSL SetupStripe
+					REP #$30
+					LDA #$2D80
+					STA $7F837D+4,x
+					SEP #$30
+					INC $01						;\2 tiles down
+					INC $01						;/
+					JSL SetupStripe
+					REP #$30
+					LDA #$AD80
+					STA $7F837D+4,x
+					SEP #$30
 					LDA #$02
 					STA !Freeram_CustomL3Menu_WritePhase
 					JMP .Done
@@ -685,7 +717,7 @@ ProcessLayer3Menu:
 					LDA !Freeram_CustomL3Menu_WritePhase	;\Next phase
 					INC					;|
 					STA !Freeram_CustomL3Menu_WritePhase	;/
-					CMP #$05				;\If cleared both the digits and cursor,
+					CMP #$06				;\If cleared both the digits and cursor,
 					BCC +					;/then reset the entire menu
 					LDA #$01				;\Reset entire menu (except the passcode string)
 					STA !Freeram_CustomL3Menu_UIState	;/
@@ -694,53 +726,155 @@ ProcessLayer3Menu:
 					...YPositionToClearDigitsThenCursor
 						db !CustomL3Menu_NumberInput_YPos
 						db !CustomL3Menu_NumberInput_YPos+1
+						db !CustomL3Menu_NumberInput_YPos+2
 
 				..RespondToUserInput
 					LDA !Freeram_ControlBackup+1+!CustomL3Menu_WhichControllerDataToConfirm
 					AND.b #!CustomL3Menu_ButtonConfirm
-					BNE ..ConfirmOrCancel
+					;BNE ..ConfirmOrCancel
+					BEQ +
+					JMP ..ConfirmOrCancel
+					+
 					LDA !Freeram_ControlBackup+1+!CustomL3Menu_WhichControllerDataToConfirm2
 					AND.b #!CustomL3Menu_ButtonConfirm2
-					BNE ..ConfirmOrCancel
+					BEQ +
+					;BNE ..ConfirmOrCancel
+					JMP ..ConfirmOrCancel
+					+
 					LDA !Freeram_ControlBackup+1+!CustomL3Menu_WhichControllerDataToCancel
 					AND.b #!CustomL3Menu_ButtonCancel
-					BNE ..ConfirmOrCancel
+					BEQ +
+					;BNE ..ConfirmOrCancel
+					JMP ..ConfirmOrCancel
+					+
+					
+					;Change cursor positions and the displayed cursor
+					
+					;These are the common settings for writing the stripes for both erasing the cursor's previous position and the new cursor position
+					LDA #$05				;\Layer 3
+					STA $02					;/
+					STZ $03					;>Direction and RLE, since only 1 tile, these can all be zeroes
+					STZ $04					;\Number of tiles
+					STZ $05					;/
+					LDA.b #!CustomL3Menu_NumberInput_YPos	;\Y position
+					STA $01					;/
+					
+					LDA !Freeram_CustomL3Menu_CursorPos	;\$8A = cursor's previous position before moving the cursor
+					STA $8A					;/
 					LDX #$01				;\Moving cursor left and right switches which digit the player wants to adjust
 					JSL DPadMoveCursorOnMenu		;/
-					BCC ...AdjustNumber			;>Don't (re)write cursor during mid-moving (during default placement of the cursor graphic)
-					JSR WriteNumberAdjusterCursor
+					BCC ...CursorNotMoved
+					
+					...CursorMovedEraseCursor
+						LDA.b #!CustomL3Menu_NumberInput_XPos	;\X position of the old cursor to erase
+						CLC					;|
+						ADC $8A					;|
+						STA $00					;/
+						JSL SetupStripe
+						REP #$20
+						LDA #$38FC				;\>Tile number of the erased upper arrow cursor
+						STA $7F837D+4,x				;/
+						SEP #$30
+						INC $01					;\Move to the lower arrow cursor
+						INC $01					;/
+						JSL SetupStripe
+						REP #$20
+						LDA #$38FC				;\>Tile number of the erased lower arrow cursor
+						STA $7F837D+4,x				;/
+						SEP #$20
+						LDA.b #!CustomL3Menu_NumberInput_YPos	;\Y position back to where it was
+						STA $01					;/
+					...CursorNotMoved
+					LDA.b #!CustomL3Menu_NumberInput_XPos		;\Current cursor position
+					CLC						;|
+					ADC !Freeram_CustomL3Menu_CursorPos		;|
+					STA $00						;/
+					...BlinkingCursor
+						SEP #$30
+						LDA !Freeram_CustomL3Menu_CursorBlinkTimer
+						AND.b #%00011111
+						BEQ ....Write
+						CMP #$17
+						BEQ ....Write
+						BRA ....NoWrite
+						
+						....Write
+							LDX #$01					;>Loop counter (so it runs again to draw both the up and down arrows.)
+							.....Loop
+								PHX
+								JSL SetupStripe					;
+								LDY #$0000					;\Blinking cursor, MOD 32 (number wraparound 0-31)
+								LDA !Freeram_CustomL3Menu_CursorBlinkTimer	;|at 0 (to 22), show cursor
+								AND.b #%00011111				;|at 23 (to 31), show blank tile
+								BEQ .....BlinkShowCursor			;|
+								CMP #$17					;|
+								BEQ .....BlinkNoShowCursor			;/
+														;>Since we already have a check for the frame timer above, one of these BEQs above here MUST be taken.
+								.....BlinkNoShowCursor
+									INY #2
+								.....BlinkShowCursor
+								REP #$20
+								LDA NumberAdjusterSelectionCursorBlink,y	;\Tile
+								STA.l $7F837D+4,x				;/
+								SEP #$20
+								LDA $01,s
+								BNE ......NoYFlip
+								......YFlip
+									LDA $7F837D+5,x
+									ORA.b #%10000000
+									STA $7F837D+5,x
+								......NoYFlip
+								SEP #$30
+								PLX
+								......Next
+								INC $01
+								INC $01
+								DEX
+								BPL .....Loop
+						....NoWrite
 					...AdjustNumber
-						LDA !Freeram_CustomL3Menu_CursorPos	;\Depending on your cursor position adjust what number to increase/decrease
-						TAX					;/
-						;LDA !Freeram_ControlBackup+1				;\Controller: byetUDLR -> 00byetUD -> 000000UD into the Y index
-						;LSR #2							;|to determine to increment or decrement it
-						;AND.b #%00000011					;|
-						LDA !Freeram_CustomL3Menu_DpadPulser			;|>udlrUDLR -> 000000ud
-						LSR #6
-						TAY							;/
-						LDA !Freeram_CustomL3Menu_DigitPasscodeUserInput,x	;\Take current digit and increment and decrement
+						LDA !Freeram_CustomL3Menu_CursorPos			;\Depending on your cursor position adjust what number to increase/decrease
+						TAX							;/X = cursor position as the digit index
+						LDA !Freeram_CustomL3Menu_DpadPulser			;\>udlrUDLR -> 000000UD
+						LSR #6							;|
+						TAY							;/Y = pulsing D pad UD bits index
+						LDA !Freeram_CustomL3Menu_DigitPasscodeUserInput,x	;\Take current digit and increment and decrement that current digit
 						CLC							;|
 						ADC IncrementDecrementNumberUI,y			;/
 						CMP #$FF						;\If digit increment/decrement outside the 0-9 range, wrap it.
 						BEQ ....WrapTo9						;|
 						CMP #$0A						;|
 						BCS ....WrapTo0						;|
-						BRA ....In0To9Range					;/
-						....WrapTo9
-							LDA #$09
-							BRA ...In0To9Range
-						....WrapTo0
-							LDA #$00
-						....In0To9Range
+						BRA ....In0To9Range					;|
+						....WrapTo9						;|
+							LDA #$09					;|
+							BRA ....In0To9Range				;|
+						....WrapTo0						;|
+							LDA #$00					;|
+						....In0To9Range						;/
 						STA !Freeram_CustomL3Menu_DigitPasscodeUserInput,x	;>Adjust digit.
 						LDA IncrementDecrementNumberUI,y			;\No increment, no sound (if both up and down are set or clear)
 						BEQ ....NoChange					;/
 						....Change
-							LDA #!CustomL3Menu_SoundEffectNumber_NumberAdjust
-							STA !CustomL3Menu_SoundEffectPort_NumberAdjust
-							JSR WriteDigits
+							LDA #!CustomL3Menu_SoundEffectNumber_NumberAdjust	;\Play sound effect
+							STA !CustomL3Menu_SoundEffectPort_NumberAdjust		;/
+							.....UpdateDigitDisplayed
+								LDA.b #!CustomL3Menu_NumberInput_YPos+1		;\Y position
+								STA $01						;/
+								;LDA.b #!CustomL3Menu_NumberInput_XPos		;\Current cursor position
+								;CLC						;|
+								;ADC !Freeram_CustomL3Menu_CursorPos		;|
+								;STA $00						;/
+								LDA !Freeram_CustomL3Menu_DigitPasscodeUserInput,x
+								STA $09
+								JSL SetupStripe
+								LDA $09						;\Tile number
+								STA.l $7F837D+4,x				;/
+								LDA #$38					;\Properties for that adjusted digit
+								STA.l $7F837D+5,x				;/
 						....NoChange
-							BRA .Done
+						SEP #$30
+						JMP .Done
 				..ConfirmOrCancel
 					LDA #$03								;\Clear menu on next frame.
 					STA !Freeram_CustomL3Menu_WritePhase					;/
@@ -827,59 +961,6 @@ ProcessLayer3Menu:
 							BCC ..Loop		;/
 					PLX			;>Restore stripe length
 					SEP #$30		;>Finish stripe
-				RTS
-		WriteDigits:
-			.DisplayDigits
-				LDA.b #!CustomL3Menu_NumberInput_XPos	;\XY pos
-				STA $00					;|
-				LDA.b #!CustomL3Menu_NumberInput_YPos	;|
-				STA $01					;/
-				LDA #$05				;\Layer
-				STA $02					;/
-				STZ $03					;>Direction and RLE
-				LDA !Freeram_CustomL3Menu_NumberOfCursorPositions	;\Number of cursor positions = number of digits the user can adjust
-				;INC							;|
-				STA $04							;|
-				STA $06							;|
-				STZ $05							;|
-				STZ $07							;/
-				JSL SetupStripe				;>X (16-bit): Stripe index
-				
-				LDA #$7F				;\$00-$02 Tile numbers address (assuming this increments by 2)
-				STA $02					;|$03-$05 Tile properties address (assuming this increments by 2)
-				STA $05					;|
-				REP #$21				;|
-				TXA					;|
-				ADC.w #$7F837D+4			;|
-				STA $00					;|
-				TXA					;|
-				CLC					;|
-				ADC.w #$7F837D+4+1			;|
-				STA $03					;|
-				SEP #$20				;/
-				LDX #$0000
-				..Loop
-					...Write
-						LDA !Freeram_CustomL3Menu_DigitPasscodeUserInput,x	;>Tile number (digits)
-						STA [$00]					
-						LDA.b #%00111000				;>Properties (for all 0-9 digits)
-						STA [$03]					
-					...Next
-						REP #$21						;\Next tile
-						LDA $00							;|
-						ADC #$0002						;|
-						STA $00							;|
-						LDA $03							;|
-						CLC							;|
-						ADC #$0002						;|
-						STA $03							;|
-						SEP #$20						;/
-						INX							;\Loop until all tiles written
-						TXA
-						CMP !Freeram_CustomL3Menu_NumberOfCursorPositions
-						BEQ ..Loop
-						BCC ..Loop						;/
-				SEP #$30
 				RTS
 	;--------------------------------------------------------------------------------
 	;String input
@@ -1139,7 +1220,6 @@ SetupStripe:
 			STA $7F837D+6,x		;/
 			REP #$20
 			LDA $04			;\NumberOfBytes = (NumberOfTiles-1)*2
-			INC
 			ASL			;|
 			SEP #$20		;/
 			BRA ..Write

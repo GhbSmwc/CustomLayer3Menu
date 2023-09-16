@@ -290,6 +290,7 @@ endif
    !CustomL3Menu_MenuDisplay_ScrollArrowNumber = $80
     ;^Tile number of the up/down scroll arrows to indicate if the menu can scroll up or down.
     ; Note that this must be an upwards arrow, as the code automatically Y-flips it.
+    ; This is also used for number adjuster when you change the digits.
     
    !CustomL3Menu_MenuDisplay_ScrollArrowProperties = %00101101
     ;^The YXPCCCTT properties of the scroll arrow. Y bit (bit 7) is automatically set for
