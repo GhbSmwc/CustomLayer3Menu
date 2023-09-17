@@ -22,12 +22,14 @@
  ;^0 = BCD: binary coded decimal (unpacked). The correct passcode is in each decimal digit form.
  ;     This has virtually no limits (well up to 32 digits because that's the width of the screen).
  ;^1 = binary: Stores the entire value as raw digits and also taking up less space (example:
- ; a passcode of "1234" would store $04D2 (2 bytes) instead of [01 02 03 04] (4 bytes)). However
- ; up to 9 digits are allowed.
+ ;     a passcode of "1234" would store $04D2 (2 bytes) instead of [01 02 03 04] (4 bytes)).
+ ;     However up to 9 digits are allowed (because when correct passcode is greater than 65,535,
+ ;     it uses a 32-bit number, whose maximum is 4,294,967,295, which is 10 digits and we cannot
+ ;     allow 9,999,999,999 being entered on it since that is greater than maximum).
  
  ;These apply if you have !BCD_or_Binary set to 1:
-  !CorrectPasscodeBinary = 1234
-  !NumberOfDigits = 4
+  !CorrectPasscodeBinary = 1234		;>The correct passcode the player has to enter
+  !NumberOfDigits = 4			;>The number of digits - to determine how many digits (may require leading zeroes) for the input UI the player is allowed to enter.
   
 ;Don't touch
  !CorrectPasscodeSize = 0
