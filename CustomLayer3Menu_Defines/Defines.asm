@@ -305,4 +305,7 @@ endif
    ;Position of the string input, being the top-leftmost bounding box (X+0 is where the cursor will be at)
     !CustomL3Menu_StringInput_XPos = 5
     !CustomL3Menu_StringInput_YPos = 5
+   ;Tile and properties for the empty space for the string the user enters.
+    !CustomL3Menu_StringInput_DisplayString_BlankTile = $27
+    !CustomL3Menu_StringInput_DisplayString_BlankProp = %00111000
  ;Other

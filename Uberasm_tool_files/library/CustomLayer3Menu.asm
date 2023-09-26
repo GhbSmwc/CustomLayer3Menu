@@ -913,159 +913,202 @@ ProcessLayer3Menu:
 			db $FF		;>%00000100 (down pressed)
 			db $01		;>%00001000 (up pressed)
 			db $00		;>%00001100 (both pressed)
-			
-		WriteNumberAdjusterCursor:
-			.DisplayCursor
-				LDA.b #!CustomL3Menu_NumberInput_XPos	;\XY pos
-				STA $00					;|
-				LDA.b #!CustomL3Menu_NumberInput_YPos+1	;|
-				STA $01					;/
-				LDA #$05				;\Layer
-				STA $02					;/
-				STZ $03					;>Direction and RLE
-				LDA !Freeram_CustomL3Menu_NumberOfCursorPositions	;\Number of cursor positions or digits
-				STA $04							;|
-				STZ $05							;/
-				JSL SetupStripe				;>X (16-bit) = Length of stripe data
-				LDA #$7F				;\$00-$02: A RAM address to safely write stripe image
-				STA $02					;|
-				REP #$21				;|
-				TXA					;|
-				ADC.w #$7F837D+4			;|
-				STA $00					;/
-				..ClearOutCursorSpaces
-					PHX				;>Preserve stripe length
-					LDX #$0000
-					..Loop
-						...WriteTile
-							STX $06					;>$06-$07: Current position processed
-							LDA !Freeram_CustomL3Menu_CursorPos	;\If looping index and cursor position match, display a cursor tile.
-							AND #$00FF				;|
-							CMP $06					;|
-							BNE ....Blank				;/
-							....Cursor ;The tile written when the cursor is on that spot
-								LDA #$B827
-								BRA ....Write
-							....Blank ;The tile written when the cursor isn't present on this spot
-								LDA #$38FC			;>[TileNumber], [Properties] -> $[Properties][TileNumber]
-							....Write
-								STA [$00]
-						...Next
-							LDA $00			;\Next tile in stripe
-							CLC			;|
-							ADC #$0002		;|
-							STA $00			;/
-							INX			;\Loop until all tiles written
-							CPX $04			;|
-							BEQ ..Loop		;|
-							BCC ..Loop		;/
-					PLX			;>Restore stripe length
-					SEP #$30		;>Finish stripe
-				RTS
 	;--------------------------------------------------------------------------------
 	;String input
-	;[ A B C D E F G H I J] <- Row 1 (!Freeram_CustomL3Menu_WritePhase == 0)
+	;[ ___________________] <- Display string (!Freeram_CustomL3Menu_WritePhase == 0)
 	;[                    ]
-	;[ K L M N O P Q R S T] <- Row 2 (!Freeram_CustomL3Menu_WritePhase == 1)
+	;[ A B C D E F G H I J] <- Row 1 (!Freeram_CustomL3Menu_WritePhase == 1)
 	;[                    ]
-	;[ U V W X Y Z        ] <- Row 3 (!Freeram_CustomL3Menu_WritePhase == 2)
+	;[ K L M N O P Q R S T] <- Row 2 (!Freeram_CustomL3Menu_WritePhase == 2)
 	;[                    ]
-	;[ 1 2 3 4 5 6 7 8 9 0] <- Row 4 (!Freeram_CustomL3Menu_WritePhase == 3)
+	;[ U V W X Y Z        ] <- Row 3 (!Freeram_CustomL3Menu_WritePhase == 3)
+	;[                    ]
+	;[ 1 2 3 4 5 6 7 8 9 0] <- Row 4 (!Freeram_CustomL3Menu_WritePhase == 4)
 	;--------------------------------------------------------------------------------
 		StringInput:
+			PHB
+			PHK
+			PLB
+			LDA #$05					;\Layer 3
+			STA $02						;/
+			LDA !Freeram_CustomL3Menu_WritePhase
+			BEQ .DisplayString
+			CMP #$05
+			BCC .DisplayCharSelectionRow
 			
+			PLB
+			RTL
+			
+			.DisplayString
+				LDA.b #!CustomL3Menu_StringInput_XPos+1		;\X pos
+				STA $00						;/
+				LDA.b #!CustomL3Menu_StringInput_YPos		;\Y pos
+				STA $01						;/
+				LDA.b #%01000000				;\Horizontal and repeating tiles
+				STA $03						;/
+				LDA.b #19-1					;\Number of tiles
+				STA $04						;|
+				STZ $05						;/
+				JSL SetupStripe
+				REP #$20
+				LDA.w #((!CustomL3Menu_StringInput_DisplayString_BlankProp<<8)|!CustomL3Menu_StringInput_DisplayString_BlankTile)
+				STA $7F837D+4,x
+				SEP #$30
+				LDA #$01					;\Next phase
+				STA !Freeram_CustomL3Menu_WritePhase		;/
+				PLB
+				RTL
+			
+			.DisplayCharSelectionRow
+				LDA.b #!CustomL3Menu_StringInput_XPos		;\X pos
+				STA $00						;/
+				LDA !Freeram_CustomL3Menu_WritePhase		;\Y pos, StringYPos = (!Freeram_CustomL3Menu_WritePhase*2)+!CustomL3Menu_StringInput_YPos
+				ASL A						;|
+				CLC						;|
+				ADC.b #!CustomL3Menu_StringInput_YPos		;|
+				STA $01						;/
+				STZ $03						;>Horizontal and not repeating tiles
+				LDA !Freeram_CustomL3Menu_WritePhase		;\Number of tiles
+				ASL						;|
+				TAX						;|
+				REP #$20					;|
+				LDA .ListOfTableTileCountMinusOne-2,x		;|
+				STA $04						;|
+				SEP #$20					;/
+				JSL SetupStripe
+				;^XY are 16-bit due to stripe data can be 256+ bytes long
+				; X is the index for where to write stripe data, starting at:
+				;  $7F837D+4,x = Tile, number
+				;  $7F837D+5,x = Tile properties
+				;
+				REP #$30
+				TXA
+				CLC
+				ADC.w #$7F837D+4
+				STA $00
+				SEP #$30
+				LDA #$7F
+				STA $02					;>$00-$02 = Current stripe address to write at
+				
+				LDA !Freeram_CustomL3Menu_WritePhase
+				ASL A
+				TAX					;>X = which row to use
+				REP #$20
+				LDA .ListOfTables-2,x
+				STA $03
+				SEP #$20
+				LDA.b #(.ListOfTables-2)>>16
+				STA $05					;>$03-$05 = what row table to use
+				
+				wdm
+				REP #$30
+				LDA .ListOfTableTileCountMinusOne-2,x
+				ASL
+				TAY					;>Y = what tile within a loop to write (also acts as a countdown loop, starting at last index)
+				..Loop
+					LDA [$03],y
+					STA [$00],y
+					...Next
+						DEY
+						DEY
+						BPL ..Loop
+				SEP #$30
+				LDA !Freeram_CustomL3Menu_WritePhase
+				INC A
+				STA !Freeram_CustomL3Menu_WritePhase
+			PLB
 			RTL
 			
 			.ListOfTables
-				dw .Row1
-				dw .Row2
-				dw .Row3
-				dw .Row4
+				dw .Row1			;>!Freeram_CustomL3Menu_WritePhase == $01 ($02)
+				dw .Row2			;>!Freeram_CustomL3Menu_WritePhase == $02 ($04)
+				dw .Row3			;>!Freeram_CustomL3Menu_WritePhase == $03 ($06)
+				dw .Row4			;>!Freeram_CustomL3Menu_WritePhase == $04 ($08)
 			.ListOfTableTileCountMinusOne
-				dw ((.Row1_end-.Row1)/2)-1
-				dw ((.Row2_end-.Row2)/2)-1
-				dw ((.Row3_end-.Row3)/2)-1
-				dw ((.Row4_end-.Row4)/2)-1
+				dw ((.Row1_end-.Row1)/2)-1	;>!Freeram_CustomL3Menu_WritePhase == $01 ($02)
+				dw ((.Row2_end-.Row2)/2)-1	;>!Freeram_CustomL3Menu_WritePhase == $02 ($04)
+				dw ((.Row3_end-.Row3)/2)-1	;>!Freeram_CustomL3Menu_WritePhase == $03 ($06)
+				dw ((.Row4_end-.Row4)/2)-1	;>!Freeram_CustomL3Menu_WritePhase == $04 ($08)
 			.Row1
 				dw ((!CustomL3Menu_CursorRightArrow_TileProp<<8)|!CustomL3Menu_CursorRightArrow_TileNumb) ;Cursor (default position)
 				dw $380A										;>"A"
-				dw $3800										;>Space
+				dw $38FC										;>Space
 				dw $380B										;>"B"
-				dw $3800										;>Space
+				dw $38FC										;>Space
 				dw $380C										;>"C"
-				dw $3800										;>Space
+				dw $38FC										;>Space
 				dw $380D										;>"D"
-				dw $3800										;>Space
+				dw $38FC										;>Space
 				dw $380E										;>"E"
-				dw $3800										;>Space
+				dw $38FC										;>Space
 				dw $380F										;>"F"
-				dw $3800										;>Space
+				dw $38FC										;>Space
 				dw $3810										;>"G"
-				dw $3800										;>Space
+				dw $38FC										;>Space
 				dw $3811										;>"H"
-				dw $3800										;>Space
+				dw $38FC										;>Space
 				dw $3812										;>"I"
-				dw $3800										;>Space
+				dw $38FC										;>Space
 				dw $3813										;>"J"
 				..end
 			
 			.Row2
-				dw $3800										;>Space
+				dw $38FC										;>Space
 				dw $3814										;>"K"
-				dw $3800										;>Space
+				dw $38FC										;>Space
 				dw $3815										;>"L"
-				dw $3800										;>Space
+				dw $38FC										;>Space
 				dw $3816										;>"M"
-				dw $3800										;>Space
+				dw $38FC										;>Space
 				dw $3817										;>"N"
-				dw $3800										;>Space
+				dw $38FC										;>Space
 				dw $3818										;>"O"
-				dw $3800										;>Space
+				dw $38FC										;>Space
 				dw $3819										;>"P"
-				dw $3800										;>Space
+				dw $38FC										;>Space
 				dw $381A										;>"Q"
-				dw $3800										;>Space
+				dw $38FC										;>Space
 				dw $381B										;>"R"
-				dw $3800										;>Space
+				dw $38FC										;>Space
 				dw $381C										;>"S"
-				dw $3800										;>Space
+				dw $38FC										;>Space
 				dw $381D										;>"T"
 				..end
 			
 			.Row3
-				dw $3800										;>Space
+				dw $38FC										;>Space
 				dw $381E										;>"U"
-				dw $3800										;>Space
+				dw $38FC										;>Space
 				dw $381F										;>"V"
-				dw $3800										;>Space
+				dw $38FC										;>Space
 				dw $3820										;>"W"
-				dw $3800										;>Space
+				dw $38FC										;>Space
 				dw $3821										;>"X"
-				dw $3800										;>Space
+				dw $38FC										;>Space
 				dw $3822										;>"Y"
-				dw $3800										;>Space
+				dw $38FC										;>Space
 				dw $3823										;>"Z"
 				..end
 			.Row4
-				dw $3800										;>Space
+				dw $38FC										;>Space
 				dw $3801										;>"1"
-				dw $3800										;>Space
+				dw $38FC										;>Space
 				dw $3802										;>"2"
-				dw $3800										;>Space
+				dw $38FC										;>Space
 				dw $3803										;>"3"
-				dw $3800										;>Space
+				dw $38FC										;>Space
 				dw $3804										;>"4"
-				dw $3800										;>Space
+				dw $38FC										;>Space
 				dw $3805										;>"5"
-				dw $3800										;>Space
+				dw $38FC										;>Space
 				dw $3806										;>"6"
-				dw $3800										;>Space
+				dw $38FC										;>Space
 				dw $3807										;>"7"
-				dw $3800										;>Space
+				dw $38FC										;>Space
 				dw $3808										;>"8"
-				dw $3800										;>Space
+				dw $38FC										;>Space
 				dw $3809										;>"9"
-				dw $3800										;>Space
+				dw $38FC										;>Space
 				dw $3800										;>"0"
 				..end
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
