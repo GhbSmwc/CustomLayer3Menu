@@ -266,6 +266,9 @@ endif
   ;Number input
    !CustomL3Menu_NumberInput_XPos = 3 ;>31 ($1F) = right edge of screen
    !CustomL3Menu_NumberInput_YPos = 25 ;>27 ($1B) = bottom of screen
+
+   !CustomL3Menu_MaxNumberOfDigitsInEntireGame = 8
+    ;^The most number of digits passcode in your entire game.
   ;Menu
    ;These represents the top-rightmost minimum bounding box of the entire graphic of the menu.
    ;-The up arrow indicating the menu could scroll up would be at (!CustomL3Menu_MenuDisplay_XPos, CustomL3Menu_MenuDisplay_YPos)
@@ -295,6 +298,8 @@ endif
    !CustomL3Menu_MenuDisplay_ScrollArrowProperties = %00101101
     ;^The YXPCCCTT properties of the scroll arrow. Y bit (bit 7) is automatically set for
     ; downwards arrow.
+  ;String input
+   ;Position of the string input, being the top-leftmost bounding box (X+0 is where the cursor will be at)
+    !CustomL3Menu_StringInput_XPos = 5
+    !CustomL3Menu_StringInput_YPos = 5
  ;Other
-  !CustomL3Menu_MaxNumberOfDigitsInEntireGame = 8
-   ;^The most number of digits passcode in your entire game.
