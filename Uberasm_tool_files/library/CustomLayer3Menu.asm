@@ -172,7 +172,7 @@ ProcessLayer3Menu:
 			db %00000000
 			db %00000010
 		MenuSelectionCursorBlink:	;>Tiles used for cursor to blink on "MenuSelection". Format: $PPNN -> PP = properties (YXPCCCTT), NN = tile number
-			dw $292E		;>Tile to use when cursor links frame 1
+			dw ((!CustomL3Menu_CursorRightArrow_TileProp<<8)|!CustomL3Menu_CursorRightArrow_TileNumb)		;>Tile to use when cursor links frame 1
 			dw $38FC		;>Tile to use when cursor links frame 2
 		NumberAdjusterSelectionCursorBlink:	;>Same as above but for number adjuster
 			dw (!CustomL3Menu_MenuDisplay_ScrollArrowProperties<<8)|!CustomL3Menu_MenuDisplay_ScrollArrowNumber	;>Tile to use when cursor links frame 1
@@ -964,17 +964,102 @@ ProcessLayer3Menu:
 				RTS
 	;--------------------------------------------------------------------------------
 	;String input
+	;[ A B C D E F G H I J] <- Row 1 (!Freeram_CustomL3Menu_WritePhase == 0)
 	;[                    ]
-	;[ A B C D E F G H I J]
+	;[ K L M N O P Q R S T] <- Row 2 (!Freeram_CustomL3Menu_WritePhase == 1)
 	;[                    ]
-	;[ K L M N O P Q R S T]
+	;[ U V W X Y Z        ] <- Row 3 (!Freeram_CustomL3Menu_WritePhase == 2)
 	;[                    ]
-	;[ U V W X Y Z        ]
-	;[                    ]
-	;[ 1 2 3 4 5 6 7 8 9 0]
+	;[ 1 2 3 4 5 6 7 8 9 0] <- Row 4 (!Freeram_CustomL3Menu_WritePhase == 3)
 	;--------------------------------------------------------------------------------
 		StringInput:
+			LDA !Freeram_CustomL3Menu_WritePhase
+			
 			RTL
+			
+			
+			.Row1
+				dw ((!CustomL3Menu_CursorRightArrow_TileProp<<8)|!CustomL3Menu_CursorRightArrow_TileNumb) ;Cursor (default position)
+				dw $380A										;>"A"
+				dw $3800										;>Space
+				dw $380B										;>"B"
+				dw $3800										;>Space
+				dw $380C										;>"C"
+				dw $3800										;>Space
+				dw $380D										;>"D"
+				dw $3800										;>Space
+				dw $380E										;>"E"
+				dw $3800										;>Space
+				dw $380F										;>"F"
+				dw $3800										;>Space
+				dw $3810										;>"G"
+				dw $3800										;>Space
+				dw $3811										;>"H"
+				dw $3800										;>Space
+				dw $3812										;>"I"
+				dw $3800										;>Space
+				dw $3813										;>"J"
+				..end
+			
+			.Row2
+				dw $3800										;>Space
+				dw $3814										;>"K"
+				dw $3800										;>Space
+				dw $3815										;>"L"
+				dw $3800										;>Space
+				dw $3816										;>"M"
+				dw $3800										;>Space
+				dw $3817										;>"N"
+				dw $3800										;>Space
+				dw $3818										;>"O"
+				dw $3800										;>Space
+				dw $3819										;>"P"
+				dw $3800										;>Space
+				dw $381A										;>"Q"
+				dw $3800										;>Space
+				dw $381B										;>"R"
+				dw $3800										;>Space
+				dw $381C										;>"S"
+				dw $3800										;>Space
+				dw $381D										;>"T"
+				..end
+			
+			.Row3
+				dw $3800										;>Space
+				dw $381E										;>"U"
+				dw $3800										;>Space
+				dw $381F										;>"V"
+				dw $3800										;>Space
+				dw $3820										;>"W"
+				dw $3800										;>Space
+				dw $3821										;>"X"
+				dw $3800										;>Space
+				dw $3822										;>"Y"
+				dw $3800										;>Space
+				dw $3823										;>"Z"
+				..end
+			.Row4
+				dw $3800										;>Space
+				dw $3801										;>"1"
+				dw $3800										;>Space
+				dw $3802										;>"2"
+				dw $3800										;>Space
+				dw $3803										;>"3"
+				dw $3800										;>Space
+				dw $3804										;>"4"
+				dw $3800										;>Space
+				dw $3805										;>"5"
+				dw $3800										;>Space
+				dw $3806										;>"6"
+				dw $3800										;>Space
+				dw $3807										;>"7"
+				dw $3800										;>Space
+				dw $3808										;>"8"
+				dw $3800										;>Space
+				dw $3809										;>"9"
+				dw $3800										;>Space
+				dw $3800										;>"0"
+				..end
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;Cursor move handler
 ;Handles D-pad to move the cursor. Designed only for "linear" menus that

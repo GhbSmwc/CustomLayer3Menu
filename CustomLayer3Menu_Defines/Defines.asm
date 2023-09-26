@@ -263,6 +263,9 @@ endif
  ;
  ;If multiple tiles, this position represent the top-leftmost tile,
  ;and extends downwards and rightwards.
+  ;Right arrow cursor
+   !CustomL3Menu_CursorRightArrow_TileNumb = $2E
+   !CustomL3Menu_CursorRightArrow_TileProp = %00101001
   ;Number input
    !CustomL3Menu_NumberInput_XPos = 3 ;>31 ($1F) = right edge of screen
    !CustomL3Menu_NumberInput_YPos = 25 ;>27 ($1B) = bottom of screen
