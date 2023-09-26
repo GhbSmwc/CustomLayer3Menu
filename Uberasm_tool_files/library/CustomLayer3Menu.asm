@@ -973,11 +973,19 @@ ProcessLayer3Menu:
 	;[ 1 2 3 4 5 6 7 8 9 0] <- Row 4 (!Freeram_CustomL3Menu_WritePhase == 3)
 	;--------------------------------------------------------------------------------
 		StringInput:
-			LDA !Freeram_CustomL3Menu_WritePhase
 			
 			RTL
 			
-			
+			.ListOfTables
+				dw .Row1
+				dw .Row2
+				dw .Row3
+				dw .Row4
+			.ListOfTableTileCountMinusOne
+				dw ((.Row1_end-.Row1)/2)-1
+				dw ((.Row2_end-.Row2)/2)-1
+				dw ((.Row3_end-.Row3)/2)-1
+				dw ((.Row4_end-.Row4)/2)-1
 			.Row1
 				dw ((!CustomL3Menu_CursorRightArrow_TileProp<<8)|!CustomL3Menu_CursorRightArrow_TileNumb) ;Cursor (default position)
 				dw $380A										;>"A"
