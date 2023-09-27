@@ -924,6 +924,8 @@ ProcessLayer3Menu:
 	;[ U V W X Y Z        ] <- Row 3 (!Freeram_CustomL3Menu_WritePhase == 3)
 	;[                    ]
 	;[ 1 2 3 4 5 6 7 8 9 0] <- Row 4 (!Freeram_CustomL3Menu_WritePhase == 4)
+	;[                    ]
+	;[ OK           CANCEL] <- Row 5 (!Freeram_CustomL3Menu_WritePhase == 5)
 	;--------------------------------------------------------------------------------
 		StringInput:
 			PHB
@@ -933,7 +935,7 @@ ProcessLayer3Menu:
 			STA $02						;/
 			LDA !Freeram_CustomL3Menu_WritePhase
 			BEQ .DisplayString
-			CMP #$05
+			CMP.b #((.ListOfTables_end-.ListOfTables)/2)+1		;> 1 <= !Freeram_CustomL3Menu_WritePhase < number of items in .ListOfTables, + 1
 			BCC .DisplayCharSelectionRow
 			
 			PLB
@@ -960,6 +962,8 @@ ProcessLayer3Menu:
 				RTL
 			
 			.DisplayCharSelectionRow
+				LDA #$00					;\Default Cursor position
+				STA !Freeram_CustomL3Menu_CursorPos		;/
 				LDA.b #!CustomL3Menu_StringInput_XPos		;\X pos
 				STA $00						;/
 				LDA !Freeram_CustomL3Menu_WritePhase		;\Y pos, StringYPos = (!Freeram_CustomL3Menu_WritePhase*2)+!CustomL3Menu_StringInput_YPos
@@ -1000,7 +1004,6 @@ ProcessLayer3Menu:
 				LDA.b #(.ListOfTables-2)>>16
 				STA $05					;>$03-$05 = what row table to use
 				
-				wdm
 				REP #$30
 				LDA .ListOfTableTileCountMinusOne-2,x
 				ASL
@@ -1024,11 +1027,60 @@ ProcessLayer3Menu:
 				dw .Row2			;>!Freeram_CustomL3Menu_WritePhase == $02 ($04)
 				dw .Row3			;>!Freeram_CustomL3Menu_WritePhase == $03 ($06)
 				dw .Row4			;>!Freeram_CustomL3Menu_WritePhase == $04 ($08)
+				dw .Row5
+				..end
 			.ListOfTableTileCountMinusOne
 				dw ((.Row1_end-.Row1)/2)-1	;>!Freeram_CustomL3Menu_WritePhase == $01 ($02)
 				dw ((.Row2_end-.Row2)/2)-1	;>!Freeram_CustomL3Menu_WritePhase == $02 ($04)
 				dw ((.Row3_end-.Row3)/2)-1	;>!Freeram_CustomL3Menu_WritePhase == $03 ($06)
 				dw ((.Row4_end-.Row4)/2)-1	;>!Freeram_CustomL3Menu_WritePhase == $04 ($08)
+				dw ((.Row5_end-.Row5)/2)-1
+				
+			;These are tables of each tile for each row.
+			;The numbers in the table represents the tile data: $PPNN, where PP is a hexadecimal number representing the
+			;properties (in binary: %YXPCCCTT) and NN is a hexadecimal number representing the tile number to use.
+			;
+			;As you edit this, make sure:
+			;-All the numbers in each table must be between 2 labels, such as .Row1 and ..end, so that the assembler
+			; correctly loops every tile data.
+			;
+			;For a reference to what character represents what glyph, here it is:
+			;$00 = "0"
+			;$01 = "1"
+			;$02 = "2"
+			;$03 = "3"
+			;$04 = "4"
+			;$05 = "5"
+			;$06 = "6"
+			;$07 = "7"
+			;$08 = "8"
+			;$09 = "9"
+			;$0A = "A"
+			;$0B = "B"
+			;$0C = "C"
+			;$0D = "D"
+			;$0E = "E"
+			;$0F = "F"
+			;$10 = "G"
+			;$11 = "H"
+			;$12 = "I"
+			;$13 = "J"
+			;$14 = "K"
+			;$15 = "L"
+			;$16 = "M"
+			;$17 = "N"
+			;$18 = "O"
+			;$19 = "P"
+			;$1A = "Q"
+			;$1B = "R"
+			;$1C = "S"
+			;$1D = "T"
+			;$1E = "U"
+			;$1F = "V"
+			;$20 = "W"
+			;$21 = "X"
+			;$22 = "Y"
+			;$23 = "Z"
 			.Row1
 				dw ((!CustomL3Menu_CursorRightArrow_TileProp<<8)|!CustomL3Menu_CursorRightArrow_TileNumb) ;Cursor (default position)
 				dw $380A										;>"A"
@@ -1110,6 +1162,28 @@ ProcessLayer3Menu:
 				dw $3809										;>"9"
 				dw $38FC										;>Space
 				dw $3800										;>"0"
+				..end
+			.Row5
+				dw $38FC										;>Space
+				dw $2818										;>"O"
+				dw $2814										;>"K"
+				dw $38FC										;>Space
+				dw $38FC										;>Space
+				dw $38FC										;>Space
+				dw $38FC										;>Space
+				dw $38FC										;>Space
+				dw $38FC										;>Space
+				dw $38FC										;>Space
+				dw $38FC										;>Space
+				dw $38FC										;>Space
+				dw $38FC										;>Space
+				dw $38FC										;>Space
+				dw $2C0C										;>"C"
+				dw $2C0A										;>"A"
+				dw $2C17										;>"N"
+				dw $2C0C										;>"C"
+				dw $2C0E										;>"E"
+				dw $2C15										;>"L"
 				..end
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;Cursor move handler
