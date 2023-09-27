@@ -937,7 +937,7 @@ ProcessLayer3Menu:
 			BEQ .DisplayString
 			CMP.b #((.ListOfTables_end-.ListOfTables)/2)+1		;> 1 <= !Freeram_CustomL3Menu_WritePhase < number of items in .ListOfTables, + 1
 			BCC .DisplayCharSelectionRow
-			
+			BEQ .RespondToUserInput
 			PLB
 			RTL
 			
@@ -1019,8 +1019,13 @@ ProcessLayer3Menu:
 				LDA !Freeram_CustomL3Menu_WritePhase
 				INC A
 				STA !Freeram_CustomL3Menu_WritePhase
-			PLB
-			RTL
+				PLB
+				RTL
+			
+			.RespondToUserInput
+			
+				PLB
+				RTL
 			
 			.ListOfTables
 				dw .Row1			;>!Freeram_CustomL3Menu_WritePhase == $01 ($02)
