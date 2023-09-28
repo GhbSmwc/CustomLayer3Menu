@@ -922,7 +922,7 @@ ProcessLayer3Menu:
 	;[                    ]
 	;[ K L M N O P Q R S T] <- Row 2 (!Freeram_CustomL3Menu_WritePhase == 2)
 	;[                    ]
-	;[ U V W X Y Z        ] <- Row 3 (!Freeram_CustomL3Menu_WritePhase == 3)
+	;[ U V W X Y Z . ! - ,] <- Row 3 (!Freeram_CustomL3Menu_WritePhase == 3)
 	;[                    ]
 	;[ 1 2 3 4 5 6 7 8 9 0] <- Row 4 (!Freeram_CustomL3Menu_WritePhase == 4)
 	;[                    ]
@@ -1021,10 +1021,25 @@ ProcessLayer3Menu:
 					PLY				;>Restore stripe tile indexing
 					STA [$00],y			;>Write to stripe (tile number)
 					
-					INY				;>Next byte so we handle YXPCCCTT
-					LDA.b #%00111000
-					STA [$00],y
-					DEY				;>Restore the index
+					...TileProps
+						LDA !Freeram_CustomL3Menu_WritePhase
+						CMP #$05			;>!Freeram_CustomL3Menu_WritePhase == $05 : OK and CANCEL are colored green and red.
+						BNE ....NoSpecialProps
+						....SpecialProps
+							PHY
+							TYA
+							LSR
+							TAY
+							LDA .Row5_Row5Props,y
+							PLY
+							INY				;>Next byte so we handle YXPCCCTT
+							BRA ....SetProps
+						....NoSpecialProps
+							INY				;>Next byte so we handle YXPCCCTT
+							LDA.b #%00111000
+						....SetProps
+							STA [$00],y
+						DEY				;>Restore the index
 					...Next
 						DEY			;\2 bytes backwards on the stripe tile data
 						DEY			;/
@@ -1037,7 +1052,11 @@ ProcessLayer3Menu:
 				RTL
 			
 			.RespondToUserInput
-			
+				LDA.b #10
+				STA $00
+				LDA.b #42-1
+				STA !Freeram_CustomL3Menu_NumberOfCursorPositions
+				JSL DPadMoveCursorOnMenu2D
 				PLB
 				RTL
 			
@@ -1046,7 +1065,7 @@ ProcessLayer3Menu:
 				dw .Row2			;>!Freeram_CustomL3Menu_WritePhase == $02 ($04)
 				dw .Row3			;>!Freeram_CustomL3Menu_WritePhase == $03 ($06)
 				dw .Row4			;>!Freeram_CustomL3Menu_WritePhase == $04 ($08)
-				dw .Row5
+				dw .Row5			;>!Freeram_CustomL3Menu_WritePhase == $05 ($0A)
 				..end
 			.ListOfTableTileCountMinusOne
 				db (.Row1_end-.Row1)-1	;>!Freeram_CustomL3Menu_WritePhase == $01
@@ -1067,7 +1086,7 @@ ProcessLayer3Menu:
 				db " K L M N O P Q R S T"
 				..end
 			.Row3
-				db " U V W X Y Z"
+				db " U V W X Y Z . ! - ,"
 				..end
 			.Row4
 				db " 1 2 3 4 5 6 7 8 9 0"
@@ -1075,6 +1094,27 @@ ProcessLayer3Menu:
 			.Row5
 				db " OK           CANCEL"
 				..end
+				..Row5Props
+				db %00111000
+				db %00101000 ;"O"
+				db %00101000 ;"K"
+				db %00111000
+				db %00111000
+				db %00111000
+				db %00111000
+				db %00111000
+				db %00111000
+				db %00111000
+				db %00111000
+				db %00111000
+				db %00111000
+				db %00111000
+				db %00101100 ;"C"
+				db %00101100 ;"A"
+				db %00101100 ;"N"
+				db %00101100 ;"C"
+				db %00101100 ;"E"
+				db %00101100 ;"L"
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;Cursor move handler
 ;Handles D-pad to move the cursor. Designed only for "linear" menus that
@@ -1088,7 +1128,7 @@ ProcessLayer3Menu:
 ;   increases, "Left" decreases.
 ;Output:
 ; Carry: 0 = No change, 1 = change. Needed so we can only update what's change
-;  on the stripe image.
+;  on the stripe image (such as erasing the old cursor position graphic).
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 DPadMoveCursorOnMenu:
 	LDA !Freeram_CustomL3Menu_DpadPulser
@@ -1157,7 +1197,7 @@ DPadMoveCursorOnMenuDownOrRight:
 ;  will "line wrap".
 ;Output:
 ; Carry: 0 = No change, 1 = change. Needed so we can only update what's change
-;  on the stripe image.
+;  on the stripe image (such as erasing the old cursor position graphic).
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 DPadMoveCursorOnMenu2D:
 	LDA !Freeram_CustomL3Menu_DpadPulser
@@ -1181,7 +1221,7 @@ DPadMoveCursorOnMenu2D:
 				LDA !Freeram_CustomL3Menu_NumberOfCursorPositions
 			...Write
 				STA !Freeram_CustomL3Menu_CursorPos
-		BRA .Vertical
+			BRA .SFX
 		..Increment1
 			LDA !Freeram_CustomL3Menu_CursorPos
 			INC
@@ -1193,24 +1233,36 @@ DPadMoveCursorOnMenu2D:
 				LDA #$00
 			...Write
 				STA !Freeram_CustomL3Menu_CursorPos
+				BRA .SFX
 	.Vertical
+		;Note to self:
+		;CursorPos = CurrentCursorPos + NumberOfCols
+		;If "NumberOfCols" is positive, cursor moves straight down,
+		;otherwise if negative (*-1), cursor moves straight up.
 		LDA !Freeram_CustomL3Menu_DpadPulser
 		AND.b #%11000000			;\Again, using CMP and "somewhat unoptimized" code because
 		CMP.b #%10000000			;|the user could enter a D-pad pressing opposite directions.
 		BEQ ..DecrementByRAM			;|
 		CMP.b #%01000000			;|
 		BEQ ..IncrementByRAM			;/
-		BRA .Done
+		BRA .NoMovement
 		
 		..DecrementByRAM
 			LDA !Freeram_CustomL3Menu_CursorPos
 			SEC
 			SBC $00
-			BCS ...Write
-			...Wrap
-				LDA !Freeram_CustomL3Menu_NumberOfCursorPositions
+			BCS ...Write			;>If not decremented past the first position, don't wrap
+			...Wrap ;>If decrement past $00, add repeatedly til it is highest value not greater than !Freeram_CustomL3Menu_NumberOfCursorPositions (wrap to the "bottom row of options")
+				CLC
+				ADC $00
+				CMP !Freeram_CustomL3Menu_NumberOfCursorPositions
+				BEQ ...Write						;>If lands exactly on last option, then stop
+				BCC ...Wrap
+				SEC							;\If greater, move a step back to the value that was before the excessive increment
+				SBC $00							;/
 			...Write
 				STA !Freeram_CustomL3Menu_CursorPos
+			BRA .SFX
 		..IncrementByRAM
 			LDA !Freeram_CustomL3Menu_CursorPos
 			CLC
@@ -1219,9 +1271,18 @@ DPadMoveCursorOnMenu2D:
 			BEQ ...Write
 			BCC ...Write
 			...Wrap
-				LDA #$00
+				SEC
+				SBC $00
+				CMP $00
+				BCS ...Wrap						;>Keep moving cursor up until at the top row.
 			...Write
 				STA !Freeram_CustomL3Menu_CursorPos
+	.SFX
+		LDA #!CustomL3Menu_SoundEffectNumber_CursorMove
+		STA !CustomL3Menu_SoundEffectPort_CursorMove
+	.CursorVisible
+		LDA #$00
+		STA !Freeram_CustomL3Menu_CursorBlinkTimer
 	.Done
 		SEC
 		RTL
