@@ -75,7 +75,7 @@ ProcessLayer3Menu:
 		AND.b #%00001111				;|
 		STA !Freeram_CustomL3Menu_DpadPulser		;/
 		LDA !Freeram_ControlBackup+1			;\And write the 1-frame D-pad inputs (so if the user shortly presses a direction, the first frame guaranteed a cursor move)
-		ASL #4						;|
+		ASL #4						;|into the pulse bits.
 		ORA !Freeram_CustomL3Menu_DpadPulser		;|
 		STA !Freeram_CustomL3Menu_DpadPulser		;/
 		..CheckHoldingDownDpadWithoutChanging

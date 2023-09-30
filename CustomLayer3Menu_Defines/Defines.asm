@@ -175,8 +175,8 @@ endif
   ; directions (or just let go in neutral direction) to reset the "turbo mode"
   ;
   ; High nybble udlr is the "D-pad oscillator" that alternates between 0 and 1, therefore repeatedly firing a direction. Note that this
-  ; also stores the UDLR bits from !Freeram_ControlBackup+1 so that the cursor moves on the first frame the player presses the D-pad
-  ; initially. The codes that check for D-pad movement checks this nybble to enable repeated movements when held down.
+  ; also stores the UDLR bits from !Freeram_ControlBackup+1 so that the cursor moves one time on the first frame the player presses the
+  ; D-pad initially. The codes that check for D-pad movement checks this nybble to enable repeated movements when held down.
 
  !Freeram_CustomL3Menu_MenuScrollPos = $79
   ;^[1 byte] This represents the scroll position should there be more options than displayed. This is mapped to the first option at the top.
