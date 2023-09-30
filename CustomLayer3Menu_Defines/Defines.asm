@@ -83,8 +83,10 @@ endif
   ;
   ; -for 2D movement, left and right adjusts this value -1/+1 while vertical movement will -NumbOfCols/+NumbOfCols where NumbOfCols
   ;  is the number of columns, or how many selections per row.
+ !Freeram_CustomL3Menu_StringInput_CaretPos = $61
+  ;^[1 byte] The position where to place the string when in StringInput mode (0-based).
   
- !Freeram_CustomL3Menu_NumberOfCursorPositions = $61
+ !Freeram_CustomL3Menu_NumberOfCursorPositions = $62
   ;^[1 byte] The number of valid cursor positions (or number of options) or digits in the passcode, -1 (a menu with 3 options means
   ; This data have a value of #$02).
   ; Used for:
@@ -94,14 +96,20 @@ endif
   ; -To make the cursor jump to the last item when the user moves the cursor past the first item.
   ;
   ; -For passcode digit mode, this is the number of digits to use (a 4-digit passcode means this have the value of #$03).
+  ;
+  ; For string input, this is the maximum number of characters the user can enter, -1.
 
  !Freeram_CustomL3Menu_DigitPasscodeUserInput = $06F9|!addr
   ;^[!CustomL3Menu_MaxNumberOfDigitsInEntireGame] bytes. Contains the string of characters entered by the user.
   ; This is used by the number passcode UI. Make sure this is all initialized to 0.
+  ;
+  ; This is also the character table for !StringInput
 
  !Freeram_CustomL3Menu_DigitCorrectPasscode = $0F5E|!addr
   ;^[!CustomL3Menu_MaxNumberOfDigitsInEntireGame] bytes. Contains the string of characters that is the correct passcode
   ; that a code compares it to determine if correct or not.
+  ;
+  ; This is also the character table for !StringInput for the correct passcode.
 
  !Freeram_CustomL3Menu_PasscodeCallBackSubroutine = $0DC3|!addr
   ;^[4 bytes], this 4-byte of contiguous data:
@@ -142,7 +150,7 @@ endif
   ; !Freeram_ControlBackup+2: $17 (%axlr---- held down)
   ; !Freeram_ControlBackup+3: $18 (%axlr---- first frame only)
 
- !Freeram_CustomL3Menu_DpadHoldTimer = $62
+ !Freeram_CustomL3Menu_DpadHoldTimer = $63
   ;^[1 byte] A counter that counts how many "quad-frames" (every 4th frame of $13) a specified direction on the D pad is being held down
   ; without changing direction. Used for making the cursor act as if the player is repeatedly pressing a direction when holding down a
   ; direction long enough (in this case a second, enters "turbo mode"). Formula:
@@ -152,7 +160,7 @@ endif
   ; Note that this isn't exact because $13 always increments. So it depends on the amount of time between the start of holding down the
   ; D-pad and the upcoming 4th frame.
 
- !Freeram_CustomL3Menu_DpadPulser  = $63
+ !Freeram_CustomL3Menu_DpadPulser  = $9C
   ;^[1 byte] a backup of the UDLR bits from !Freeram_ControlBackup. This is to detect if the player remains holding in a specific direction
   ; without changing. Format:
   ;
@@ -271,7 +279,7 @@ endif
    !CustomL3Menu_NumberInput_YPos = 25 ;>27 ($1B) = bottom of screen
 
    !CustomL3Menu_MaxNumberOfDigitsInEntireGame = 8
-    ;^The most number of digits passcode in your entire game.
+    ;^The most number of digits passcode and the longest string in your entire game.
   ;Menu
    ;These represents the top-rightmost minimum bounding box of the entire graphic of the menu.
    ;-The up arrow indicating the menu could scroll up would be at (!CustomL3Menu_MenuDisplay_XPos, CustomL3Menu_MenuDisplay_YPos)
@@ -304,8 +312,24 @@ endif
   ;String input
    ;Position of the string input, being the top-leftmost bounding box (X+0 is where the cursor will be at)
     !CustomL3Menu_StringInput_XPos = 5
-    !CustomL3Menu_StringInput_YPos = 5
+    !CustomL3Menu_StringInput_YPos = 7
    ;Tile and properties for the empty space for the string the user enters.
-    !CustomL3Menu_StringInput_DisplayString_BlankTile = $27
-    !CustomL3Menu_StringInput_DisplayString_BlankProp = %00111000
+    !CustomL3Menu_StringInput_DisplayString_CaretNotThere = $27
+    !CustomL3Menu_StringInput_DisplayString_CaretNotThereProp = %00111000
  ;Other
+  ;Debugging
+  ;On the status bar:
+  ; 1st number: shows the cursor's position, !Freeram_CustomL3Menu_CursorPos (only shows the first time you move cursor)
+  ; 2nd number: shows the "maximum" cursor position index, !Freeram_CustomL3Menu_NumberOfCursorPositions
+   !Debug_Display = 1
+    ;^0 = off, 1 = on.
+    ; Use this if you are customizing the menu and ran into issues
+   ;Status bar starting address to write:
+    !Debug_Display_StatusBarBasePos_Tile = $7FA000
+    !Debug_Display_StatusBarBasePos_Props = $7FA001
+   !Debug_Display_StatusBarFormat = $02
+    ;^$01 = SMW/Ladida's Tile number and properties be in separate tables
+    ;       (one table being TTTTTTTT, TTTTTTTT... and another being YXPCCCTT, YXPCCCTT...)
+    ; $02 = Super status bar/Overworld border plus format, both tile number and properties
+    ;       are on the same table alternating (goes like this: TTTTTTTT, YXPCCCTT,
+    ;       TTTTTTTT, YXPCCCTT...)

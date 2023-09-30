@@ -10,6 +10,17 @@
 
 	incsrc "../CustomLayer3Menu_Defines/Defines.asm"
 	table "../CustomLayer3Menu_Defines/ascii.txt"
+	
+	if !Debug_Display != 0
+		macro DisplayHexNumber(ValueToDisplay, StatusBarWritePos)
+			LDA <ValueToDisplay>
+			LSR #4
+			STA <StatusBarWritePos>
+			LDA <ValueToDisplay>
+			ANd.b #%00001111
+			STA <StatusBarWritePos>+!Debug_Display_StatusBarFormat
+		endmacro
+	endif
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;Process layer 3 menu
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -587,6 +598,9 @@ ProcessLayer3Menu:
 						STA !Freeram_CustomL3Menu_UIState	;/
 						JMP .Done
 			.Done
+				if !Debug_Display != 0
+					%DisplayHexNumber(!Freeram_CustomL3Menu_NumberOfCursorPositions, !Debug_Display_StatusBarBasePos_Tile+(3*!Debug_Display_StatusBarFormat))
+				endif
 			PLB					;>Restore bank
 			RTL
 			.SetupStripeInputs
@@ -881,6 +895,9 @@ ProcessLayer3Menu:
 						JSL !Freeram_CustomL3Menu_PasscodeCallBackSubroutine	;>And now JSL to there, which as expected, JMLs to a supplied code. Once RTL, should go to the instruction below here.
 						BRA .Done
 			.Done
+				if !Debug_Display != 0
+					%DisplayHexNumber(!Freeram_CustomL3Menu_NumberOfCursorPositions, !Debug_Display_StatusBarBasePos_Tile+(3*!Debug_Display_StatusBarFormat))
+				endif
 				PLB			;>Restore bank
 				RTL
 			
@@ -891,8 +908,8 @@ ProcessLayer3Menu:
 			db $00		;>%00001100 (both pressed)
 	;--------------------------------------------------------------------------------
 	;String input
-	;[ *******************] <- Display string (the characters the user enters, !Freeram_CustomL3Menu_WritePhase == 0)
-	;[ -------------------] <- Display string (!Freeram_CustomL3Menu_WritePhase == 1)
+	;[ *******************] <- Display string 1 (the characters the user enters, !Freeram_CustomL3Menu_WritePhase == 0)
+	;[ ^------------------] <- Display string 2 (!Freeram_CustomL3Menu_WritePhase == 1)
 	;[                    ]
 	;[ A B C D E F G H I J] <- Row 1 (!Freeram_CustomL3Menu_WritePhase == 2)
 	;[                    ]
@@ -911,8 +928,9 @@ ProcessLayer3Menu:
 			LDA #$05					;\Layer 3
 			STA $02						;/
 			LDA !Freeram_CustomL3Menu_WritePhase
-			CMP #$02
-			BCC .DisplayString				;>$00-$01
+			BEQ .DisplayString1				;>$00
+			CMP #$01
+			BEQ .DisplayString2				;>$01
 			CMP #$07
 			BCC .DisplayCharSelectionAndConfirmRow			;>$02-$06
 			BNE +
@@ -921,33 +939,33 @@ ProcessLayer3Menu:
 			PLB
 			RTL
 			
-			.DisplayString
-				LDA.b #!CustomL3Menu_StringInput_XPos+1		;\X pos
-				STA $00						;/
-				LDA.b #!CustomL3Menu_StringInput_YPos		;\Y pos
-				CLC						;|
-				ADC !Freeram_CustomL3Menu_WritePhase		;|
-				STA $01						;/
-				LDA.b #%01000000				;\Horizontal and repeating tiles
-				STA $03						;/
-				LDA.b #19-1					;\Number of tiles
-				STA $04						;|
-				STZ $05						;/
+			.DisplayString1
+				LDA.b #!CustomL3Menu_StringInput_XPos+1			;\X pos
+				STA $00							;/
+				LDA.b #!CustomL3Menu_StringInput_YPos			;\Y pos
+				CLC							;|
+				ADC !Freeram_CustomL3Menu_WritePhase			;|
+				STA $01							;/
+				LDA.b #%01000000					;\Horizontal and repeating tiles
+				STA $03							;/
+				LDA.b !Freeram_CustomL3Menu_NumberOfCursorPositions	;\Number of tiles
+				STA $04							;|
+				STZ $05							;/
 				JSL SetupStripe
 				REP #$20
-				LDA !Freeram_CustomL3Menu_WritePhase
-				AND #$00FF
-				ASL
-				TAY
-				LDA .DisplayStringTiles,y
+				LDA #$38FC
 				STA $7F837D+4,x
 				SEP #$30
-				LDA !Freeram_CustomL3Menu_WritePhase		;\Next phase
-				INC A						;|
+				LDA #$01					;\Next phase
 				STA !Freeram_CustomL3Menu_WritePhase		;/
 				PLB
 				RTL
-			
+			.DisplayString2
+				JSL DrawCaretAndBlankLines
+				LDA #$02
+				STA !Freeram_CustomL3Menu_WritePhase
+				PLB
+				RTL
 			.DisplayCharSelectionAndConfirmRow
 				LDA #$00					;\Default Cursor position
 				STA !Freeram_CustomL3Menu_CursorPos		;/
@@ -1038,12 +1056,11 @@ ProcessLayer3Menu:
 				LDA.b #10						;\How many columns
 				STA $00							;/
 				LDA.b #42-1						;\How many cursor positions
-				STA !Freeram_CustomL3Menu_NumberOfCursorPositions	;/
+				STA $01							;/
 				LDA !Freeram_CustomL3Menu_CursorPos			;\$8A = cursor's previous position before moving the cursor
 				STA $8A							;/
 				JSL DPadMoveCursorOnMenu2D				;>Move cursor based on D-pad
 				BCC ..CursorNotMoved
-				wdm
 				..CursorMovedEraseCursor
 					LDA $8A				;\Y = index for each position of the cursor
 					ASL				;|
@@ -1051,7 +1068,6 @@ ProcessLayer3Menu:
 					REP #$20			
 					LDA .CursorPositions,y		;\XY position of the tile to erase (16-bit; $YYXX) -> $00-$01
 					STA $00				;/
-					wdm
 					SEP #$20			
 					LDA #$05			;\Layer 3
 					STA $02				;/
@@ -1077,27 +1093,24 @@ ProcessLayer3Menu:
 					STZ $03				;>D and RLE
 					STZ $04				;\1 tile
 					STZ $05				;/
-					
 					JSL DrawBlinkingCursor
-					
 					...CursorWriteDone
 					SEP #$30
-				..debug
-					LDA !Freeram_CustomL3Menu_CursorBlinkTimer
-					AND.b #%00011111
-					STA $00
-					
-					LDA $00
-					AND.b #%00001111
-					STA $7FA002
-					LDA $00
-					LSR #4
-					STA $7FA000
+				..DisplayString
+					JSL LRMoveCaret
+					BCC ...NoCaretMoved
+					...CaretMoved
+						JSL DrawCaretAndBlankLines
+					...NoCaretMoved
+				..Done
+					if !Debug_Display != 0
+						%DisplayHexNumber(!Freeram_CustomL3Menu_NumberOfCursorPositions, !Debug_Display_StatusBarBasePos_Tile+(3*!Debug_Display_StatusBarFormat))
+					endif
 				PLB
 				RTL
 			.DisplayStringTiles
 				dw $38FC
-				dw ((!CustomL3Menu_StringInput_DisplayString_BlankProp<<8)|!CustomL3Menu_StringInput_DisplayString_BlankTile)
+				dw ((!CustomL3Menu_StringInput_DisplayString_CaretNotThereProp<<8)|!CustomL3Menu_StringInput_DisplayString_CaretNotThere)
 			.CursorPositions
 				;This is a table of every XY position that the cursor can be on.
 				;This is needed to erase and draw the cursor when the cursor is moved.
@@ -1303,6 +1316,9 @@ DPadMoveCursorOnMenu:
 	.CursorVisible
 		LDA #$00
 		STA !Freeram_CustomL3Menu_CursorBlinkTimer
+	if !Debug_Display != 0
+		%DisplayHexNumber(!Freeram_CustomL3Menu_CursorPos, !Debug_Display_StatusBarBasePos_Tile)
+	endif
 	.SetCarry
 		SEC
 		RTL
@@ -1326,10 +1342,9 @@ DPadMoveCursorOnMenuDownOrRight:
 ;
 ;Input:
 ; $00 (1 byte): How many columns the menu spans.
-; !Freeram_CustomL3Menu_NumberOfCursorPositions (1 byte): Used so that
-;  the cursor can only be at valid positions. As this value increases
-;  positions will be added to the "right" and if a row is finished,
-;  will "line wrap".
+; $01 (1 byte): Used so that the cursor can only be at valid positions. As
+;  this value increases positions will be added to the "right" and if a row
+;  is finished, will "line wrap".
 ;Output:
 ; Carry: 0 = No change, 1 = change. Needed so we can only update what's change
 ;  on the stripe image (such as erasing the old cursor position graphic).
@@ -1353,14 +1368,14 @@ DPadMoveCursorOnMenu2D:
 			BRA ...Write
 			
 			...Wrap
-				LDA !Freeram_CustomL3Menu_NumberOfCursorPositions
+				LDA $01
 			...Write
 				STA !Freeram_CustomL3Menu_CursorPos
 			BRA .SFX
 		..Increment1
 			LDA !Freeram_CustomL3Menu_CursorPos
 			INC
-			CMP !Freeram_CustomL3Menu_NumberOfCursorPositions
+			CMP $01
 			BEQ ...Write
 			BCC ...Write
 			
@@ -1390,7 +1405,7 @@ DPadMoveCursorOnMenu2D:
 			...Wrap ;>If decrement past $00, add repeatedly til it is highest value not greater than !Freeram_CustomL3Menu_NumberOfCursorPositions (wrap to the "bottom row of options")
 				CLC
 				ADC $00
-				CMP !Freeram_CustomL3Menu_NumberOfCursorPositions
+				CMP $01
 				BEQ ...Write						;>If lands exactly on last option, then stop
 				BCC ...Wrap
 				SEC							;\If greater, move a step back to the value that was before the excessive increment
@@ -1402,7 +1417,7 @@ DPadMoveCursorOnMenu2D:
 			LDA !Freeram_CustomL3Menu_CursorPos
 			CLC
 			ADC $00
-			CMP !Freeram_CustomL3Menu_NumberOfCursorPositions
+			CMP $01
 			BEQ ...Write
 			BCC ...Write
 			...Wrap
@@ -1418,12 +1433,100 @@ DPadMoveCursorOnMenu2D:
 	.CursorVisible
 		LDA #$00
 		STA !Freeram_CustomL3Menu_CursorBlinkTimer
+	if !Debug_Display != 0
+		%DisplayHexNumber(!Freeram_CustomL3Menu_CursorPos, !Debug_Display_StatusBarBasePos_Tile)
+	endif
 	.Done
 		SEC
 		RTL
 	.NoMovement
 		CLC
 		RTL
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;L/R move caret on string
+;Carry: 0 if no movement occurred, 1 if movement occurred.
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+LRMoveCaret:
+	LDA !Freeram_ControlBackup+3
+	LSR #4
+	AND.b #%00000011
+	CMP.b #%00000010
+	BEQ .Decrease
+	CMP.b #%00000001
+	BEQ .Increase
+	BRA .NoChange
+	.Decrease
+		LDA !Freeram_CustomL3Menu_StringInput_CaretPos
+		BEQ .NoChange
+		DEC A
+		STA !Freeram_CustomL3Menu_StringInput_CaretPos
+		BRA .Change
+	.Increase
+		LDA !Freeram_CustomL3Menu_StringInput_CaretPos
+		CMP !Freeram_CustomL3Menu_NumberOfCursorPositions
+		BCS .NoChange
+		INC A
+		STA !Freeram_CustomL3Menu_StringInput_CaretPos
+	.Change
+		.SFX
+			LDA #!CustomL3Menu_SoundEffectNumber_CursorMove
+			STA !CustomL3Menu_SoundEffectPort_CursorMove
+		SEC
+		RTL
+	.NoChange
+		CLC
+		RTL
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;Draw display string caret position and blank lines
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+DrawCaretAndBlankLines:
+	LDA.b #!CustomL3Menu_StringInput_XPos+1			;\X pos
+	STA $00							;/
+	LDA.b #!CustomL3Menu_StringInput_YPos
+	INC
+	STA $01
+	LDA #$05
+	STA $02
+	STZ $03
+	LDA !Freeram_CustomL3Menu_NumberOfCursorPositions
+	STA $04
+	STZ $05
+	JSL SetupStripe
+	
+	REP #$30
+	TXA
+	CLC
+	ADC.w #$7F837D+4
+	STA $00
+	SEP #$30
+	LDA #$7F
+	STA $02					;>$00-$02 = Current stripe address to write at
+	
+	LDA !Freeram_CustomL3Menu_NumberOfCursorPositions
+	ASL
+	TAY
+	.Loop
+		LDX #$00
+		TYA
+		LSR
+		CMP !Freeram_CustomL3Menu_StringInput_CaretPos
+		BNE .NotAnArrow
+		.AnArrow
+			INX #2
+		.NotAnArrow
+		REP #$20
+		LDA .DisplayStringShowCaretPos,x
+		STA [$00],y
+		SEP #$20
+		.Next
+			DEY
+			DEY
+			BPL .Loop
+	SEP #$30
+	RTL
+	.DisplayStringShowCaretPos
+		dw ((!CustomL3Menu_StringInput_DisplayString_CaretNotThereProp<<8)|!CustomL3Menu_StringInput_DisplayString_CaretNotThere)
+		dw (!CustomL3Menu_MenuDisplay_ScrollArrowProperties<<8)|!CustomL3Menu_MenuDisplay_ScrollArrowNumber
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;Easy stripe setup-er 2.1. Sets up stripe header, Updates length of stripe,
 ;and writes the terminating byte. You only need to write the tile data
