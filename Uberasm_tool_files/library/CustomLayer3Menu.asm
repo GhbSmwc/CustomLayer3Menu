@@ -1134,7 +1134,6 @@ ProcessLayer3Menu:
 							CMP #$28
 							BCC .....Numbers			;>$1E-$28 are numbers 0-9
 							.....Letters
-								wdm
 								CLC
 								ADC #$0A			;>Letters = !Freeram_CustomL3Menu_CursorPos + $0A bc the characters goes A-Z at $0A-$23
 								TAY
@@ -1149,9 +1148,9 @@ ProcessLayer3Menu:
 								SBC #$1E			;>Numbers = !Freeram_CustomL3Menu_CursorPos - $1E bc the characters goes 0-9 at $00-$09
 								TAY
 							.....PrintCharacters
-								LDA !Freeram_CustomL3Menu_NumberOfCursorPositions	;\Prevent writing more characters than max
-								CMP !Freeram_CustomL3Menu_StringInput_CaretPos		;|
-								BCC ..Done						;/
+								LDA !Freeram_CustomL3Menu_NumberOfCursorPositions	;\Prevent writing characters beyond the last "slot"
+								CMP !Freeram_CustomL3Menu_StringInput_CaretPos		;|(if equal, allow writing the last character and cursor being +1 beyond the last)
+								BCC ......CharacterMaxed				;/
 								LDA !Freeram_CustomL3Menu_StringInput_CaretPos		;\index position of character
 								TAX							;/
 								TYA							;\Write character
@@ -1162,6 +1161,11 @@ ProcessLayer3Menu:
 								LDA #!CustomL3Menu_StringInput_SFX_CharWriteNumber	;\Sound effects
 								STA !CustomL3Menu_StringInput_SFX_CharWritePort		;/
 								BRA ....UpdateStringStripe
+								
+								......CharacterMaxed
+									LDA #!CustomL3Menu_SoundEffectNumber_Rejected
+									STA !CustomL3Menu_SoundEffectPort_Rejected
+									BRA ..Done
 						....BackSpace
 							LDA !Freeram_CustomL3Menu_StringInput_CaretPos
 							BEQ ..Done
@@ -1575,9 +1579,10 @@ LRMoveCaret:
 		STA !Freeram_CustomL3Menu_StringInput_CaretPos
 		BRA .Change
 	.Increase
+		LDA !Freeram_CustomL3Menu_NumberOfCursorPositions		;\+1 (If equal, allow cursor +1 beyond the last character) because that will allow backspacing on the rightmost character
+		CMP !Freeram_CustomL3Menu_StringInput_CaretPos			;|
+		BCC .NoChange							;/
 		LDA !Freeram_CustomL3Menu_StringInput_CaretPos
-		CMP !Freeram_CustomL3Menu_NumberOfCursorPositions
-		BCS .NoChange
 		INC A
 		STA !Freeram_CustomL3Menu_StringInput_CaretPos
 	.Change
