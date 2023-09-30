@@ -171,9 +171,6 @@ ProcessLayer3Menu:
 		MenuSelectionBitwiseMenuScroll:
 			db %00000000
 			db %00000010
-		MenuSelectionCursorBlink:	;>Tiles used for cursor to blink on "MenuSelection". Format: $PPNN -> PP = properties (YXPCCCTT), NN = tile number
-			dw ((!CustomL3Menu_CursorRightArrow_TileProp<<8)|!CustomL3Menu_CursorRightArrow_TileNumb)		;>Tile to use when cursor links frame 1
-			dw $38FC		;>Tile to use when cursor links frame 2
 		NumberAdjusterSelectionCursorBlink:	;>Same as above but for number adjuster
 			dw (!CustomL3Menu_MenuDisplay_ScrollArrowProperties<<8)|!CustomL3Menu_MenuDisplay_ScrollArrowNumber	;>Tile to use when cursor links frame 1
 			dw $38FC												;>Tile to use when cursor links frame 2
@@ -336,19 +333,7 @@ ProcessLayer3Menu:
 								
 								......WriteOnStripe
 								JSL SetupStripe
-								LDY #$0000					;\Blinking cursor, MOD 32 (number wraparound 0-31)
-								LDA !Freeram_CustomL3Menu_CursorBlinkTimer	;|at 0 (to 22), show cursor
-								AND.b #%00011111				;|at 23 (to 31), show blank tile
-								BEQ ......BlinkShowCursor			;|
-								CMP #$17					;|
-								BEQ ......BlinkNoShowCursor			;/
-								BRA .....CursorWriteDone			;>For most frames, don't draw that is already drawn to avoid vblank issues
-								......BlinkNoShowCursor
-									INY #2
-								......BlinkShowCursor
-								REP #$20
-								LDA MenuSelectionCursorBlink,y			;\Tile
-								STA.l $7F837D+4,x				;/
+								JSL DrawBlinkingCursor
 							.....CursorWriteDone
 								SEP #$30
 						....Options
@@ -915,18 +900,18 @@ ProcessLayer3Menu:
 			db $00		;>%00001100 (both pressed)
 	;--------------------------------------------------------------------------------
 	;String input
-	;[ *******************]
-	;[ -------------------] <- Display string (!Freeram_CustomL3Menu_WritePhase == 0)
+	;[ *******************] <- Display string (the characters the user enters, !Freeram_CustomL3Menu_WritePhase == 0)
+	;[ -------------------] <- Display string (!Freeram_CustomL3Menu_WritePhase == 1)
 	;[                    ]
-	;[ A B C D E F G H I J] <- Row 1 (!Freeram_CustomL3Menu_WritePhase == 1)
+	;[ A B C D E F G H I J] <- Row 1 (!Freeram_CustomL3Menu_WritePhase == 2)
 	;[                    ]
-	;[ K L M N O P Q R S T] <- Row 2 (!Freeram_CustomL3Menu_WritePhase == 2)
+	;[ K L M N O P Q R S T] <- Row 2 (!Freeram_CustomL3Menu_WritePhase == 3)
 	;[                    ]
-	;[ U V W X Y Z . ! - ,] <- Row 3 (!Freeram_CustomL3Menu_WritePhase == 3)
+	;[ U V W X Y Z . ! - ,] <- Row 3 (!Freeram_CustomL3Menu_WritePhase == 4)
 	;[                    ]
-	;[ 1 2 3 4 5 6 7 8 9 0] <- Row 4 (!Freeram_CustomL3Menu_WritePhase == 4)
+	;[ 1 2 3 4 5 6 7 8 9 0] <- Row 4 (!Freeram_CustomL3Menu_WritePhase == 5)
 	;[                    ]
-	;[ OK           CANCEL] <- Row 5 (!Freeram_CustomL3Menu_WritePhase == 5)
+	;[ OK           CANCEL] <- Row 5 (!Freeram_CustomL3Menu_WritePhase == 6)
 	;--------------------------------------------------------------------------------
 		StringInput:
 			PHB
@@ -935,10 +920,10 @@ ProcessLayer3Menu:
 			LDA #$05					;\Layer 3
 			STA $02						;/
 			LDA !Freeram_CustomL3Menu_WritePhase
-			BEQ .DisplayString
-			CMP.b #((.ListOfTables_end-.ListOfTables)/2)+1		;> 1 <= !Freeram_CustomL3Menu_WritePhase < number of items in .ListOfTables, + 1
-			BCC .DisplayCharSelectionRow
-			;BEQ .RespondToUserInput
+			CMP #$02
+			BCC .DisplayString				;>$00-$01
+			CMP #$07
+			BCC .DisplayCharSelectionAndConfirmRow			;>$02-$06
 			BNE +
 			JMP .RespondToUserInput
 			+
@@ -948,7 +933,9 @@ ProcessLayer3Menu:
 			.DisplayString
 				LDA.b #!CustomL3Menu_StringInput_XPos+1		;\X pos
 				STA $00						;/
-				LDA.b #!CustomL3Menu_StringInput_YPos+1		;\Y pos
+				LDA.b #!CustomL3Menu_StringInput_YPos		;\Y pos
+				CLC						;|
+				ADC !Freeram_CustomL3Menu_WritePhase		;|
 				STA $01						;/
 				LDA.b #%01000000				;\Horizontal and repeating tiles
 				STA $03						;/
@@ -957,15 +944,20 @@ ProcessLayer3Menu:
 				STZ $05						;/
 				JSL SetupStripe
 				REP #$20
-				LDA.w #((!CustomL3Menu_StringInput_DisplayString_BlankProp<<8)|!CustomL3Menu_StringInput_DisplayString_BlankTile)
+				LDA !Freeram_CustomL3Menu_WritePhase
+				AND #$00FF
+				ASL
+				TAY
+				LDA .DisplayStringTiles,y
 				STA $7F837D+4,x
 				SEP #$30
-				LDA #$01					;\Next phase
+				LDA !Freeram_CustomL3Menu_WritePhase		;\Next phase
+				INC A						;|
 				STA !Freeram_CustomL3Menu_WritePhase		;/
 				PLB
 				RTL
 			
-			.DisplayCharSelectionRow
+			.DisplayCharSelectionAndConfirmRow
 				LDA #$00					;\Default Cursor position
 				STA !Freeram_CustomL3Menu_CursorPos		;/
 				LDA.b #!CustomL3Menu_StringInput_XPos		;\X pos
@@ -973,12 +965,12 @@ ProcessLayer3Menu:
 				LDA !Freeram_CustomL3Menu_WritePhase		;\Y pos, StringYPos = (!Freeram_CustomL3Menu_WritePhase*2)+!CustomL3Menu_StringInput_YPos+1
 				ASL A						;|
 				CLC						;|
-				ADC.b #!CustomL3Menu_StringInput_YPos+1		;|
+				ADC.b #!CustomL3Menu_StringInput_YPos-1		;|
 				STA $01						;/
 				STZ $03						;>Horizontal and not repeating tiles
 				LDA !Freeram_CustomL3Menu_WritePhase		;\Number of tiles
 				TAX						;|
-				LDA .ListOfTableTileCountMinusOne-1,x		;|
+				LDA .ListOfTableTileCountMinusOne-2,x		;|
 				STA $04						;|
 				STZ $05						;/
 				JSL SetupStripe
@@ -996,20 +988,20 @@ ProcessLayer3Menu:
 				LDA #$7F
 				STA $02					;>$00-$02 = Current stripe address to write at
 				
-				LDA !Freeram_CustomL3Menu_WritePhase
+				LDA !Freeram_CustomL3Menu_WritePhase	;>
 				ASL A
 				TAX					;>X = which row to use
 				REP #$20
-				LDA .ListOfTables-2,x
+				LDA .ListOfTables-4,x
 				STA $03
 				SEP #$20
-				LDA.b #(.ListOfTables-2)>>16
+				LDA.b #(.ListOfTables-4)>>16
 				STA $05					;>$03-$05 = what row table to use
 				
 				TXA					;\X/2 because we went from using a table with each value being 2 bytes to a table with each value being 1 byte.
 				LSR					;|
 				TAX					;/
-				LDA .ListOfTableTileCountMinusOne-1,x	;>The highest index for each row...
+				LDA .ListOfTableTileCountMinusOne-2,x	;>The highest index for each row...
 				ASL					;>...*2 because each tile we are writing to is 2 bytes
 				TAY					;>Y = what tile within a loop to write (also acts as a countdown loop, starting at last index)
 				..Loop
@@ -1023,7 +1015,7 @@ ProcessLayer3Menu:
 					
 					...TileProps
 						LDA !Freeram_CustomL3Menu_WritePhase
-						CMP #$05			;>!Freeram_CustomL3Menu_WritePhase == $05 : OK and CANCEL are colored green and red.
+						CMP #$06			;>!Freeram_CustomL3Menu_WritePhase == $06 : OK and CANCEL are colored green and red.
 						BNE ....NoSpecialProps
 						....SpecialProps
 							PHY
@@ -1052,14 +1044,137 @@ ProcessLayer3Menu:
 				RTL
 			
 			.RespondToUserInput
-				LDA.b #10
-				STA $00
-				LDA.b #42-1
-				STA !Freeram_CustomL3Menu_NumberOfCursorPositions
-				JSL DPadMoveCursorOnMenu2D
+				LDA.b #10						;\How many columns
+				STA $00							;/
+				LDA.b #42-1						;\How many cursor positions
+				STA !Freeram_CustomL3Menu_NumberOfCursorPositions	;/
+				LDA !Freeram_CustomL3Menu_CursorPos			;\$8A = cursor's previous position before moving the cursor
+				STA $8A							;/
+				JSL DPadMoveCursorOnMenu2D				;>Move cursor based on D-pad
+				BCC ..CursorNotMoved
+				wdm
+				..CursorMovedEraseCursor
+					LDA $8A				;\Y = index for each position of the cursor
+					ASL				;|
+					TAY				;/
+					REP #$20			
+					LDA .CursorPositions,y		;\XY position of the tile to erase (16-bit; $YYXX) -> $00-$01
+					STA $00				;/
+					wdm
+					SEP #$20			
+					LDA #$05			;\Layer 3
+					STA $02				;/
+					STZ $03				;>D and RLE
+					STZ $04				;\1 tile
+					STZ $05				;/
+					JSL SetupStripe
+					REP #$20
+					LDA #$38FC			;\Erase tile
+					STA $7F837D+4,x			;/
+					SEP #$30
+				..CursorNotMoved
+				..DrawCursor
+					LDA !Freeram_CustomL3Menu_CursorPos	;\Y = index for each position of the cursor
+					ASL					;|
+					TAY					;/
+					REP #$20			
+					LDA .CursorPositions,y		;\XY position of the tile to erase (16-bit; $YYXX) -> $00-$01
+					STA $00				;/
+					SEP #$20			
+					LDA #$05			;\Layer 3
+					STA $02				;/
+					STZ $03				;>D and RLE
+					STZ $04				;\1 tile
+					STZ $05				;/
+					
+					LDA !Freeram_CustomL3Menu_CursorBlinkTimer
+					AND.b #%00011111
+					BEQ ...WriteOnStripe
+					CMP #$17
+					BEQ ...WriteOnStripe
+					BRA ...CursorWriteDone
+
+					
+					...WriteOnStripe
+					JSL SetupStripe
+					JSL DrawBlinkingCursor
+					
+					...CursorWriteDone
+					SEP #$30
+				..debug
+					LDA !Freeram_CustomL3Menu_CursorBlinkTimer
+					AND.b #%00011111
+					STA $00
+					
+					LDA $00
+					AND.b #%00001111
+					STA $7FA002
+					LDA $00
+					LSR #4
+					STA $7FA000
 				PLB
 				RTL
-			
+			.DisplayStringTiles
+				dw $3800
+				dw ((!CustomL3Menu_StringInput_DisplayString_BlankProp<<8)|!CustomL3Menu_StringInput_DisplayString_BlankTile)
+			.CursorPositions
+				;This is a table of every XY position that the cursor can be on.
+				;This is needed to erase and draw the cursor when the cursor is moved.
+				;
+				;Formula:
+				;	dw ((!CustomL3Menu_StringInput_YPos+[Y])<<8)|!CustomL3Menu_StringInput_XPos+[X]
+				;
+				;[X] and [Y] are the XY positions (increments for each 8x8 tile), relative to
+				;define !CustomL3Menu_StringInput_XPos and CustomL3Menu_StringInput_YPos.
+				;
+				;If a number doesn't have any prefix (e.g $ for hex, % for binary), then it is
+				;treated as decimal.
+				dw ((!CustomL3Menu_StringInput_YPos+03)<<8)|!CustomL3Menu_StringInput_XPos+00 ;Row 1 (A-J)
+				dw ((!CustomL3Menu_StringInput_YPos+03)<<8)|!CustomL3Menu_StringInput_XPos+02 ;
+				dw ((!CustomL3Menu_StringInput_YPos+03)<<8)|!CustomL3Menu_StringInput_XPos+04 ;
+				dw ((!CustomL3Menu_StringInput_YPos+03)<<8)|!CustomL3Menu_StringInput_XPos+06 ;
+				dw ((!CustomL3Menu_StringInput_YPos+03)<<8)|!CustomL3Menu_StringInput_XPos+08 ;
+				dw ((!CustomL3Menu_StringInput_YPos+03)<<8)|!CustomL3Menu_StringInput_XPos+10 ;
+				dw ((!CustomL3Menu_StringInput_YPos+03)<<8)|!CustomL3Menu_StringInput_XPos+12 ;
+				dw ((!CustomL3Menu_StringInput_YPos+03)<<8)|!CustomL3Menu_StringInput_XPos+14 ;
+				dw ((!CustomL3Menu_StringInput_YPos+03)<<8)|!CustomL3Menu_StringInput_XPos+16 ;
+				dw ((!CustomL3Menu_StringInput_YPos+03)<<8)|!CustomL3Menu_StringInput_XPos+18 ;
+				
+				dw ((!CustomL3Menu_StringInput_YPos+05)<<8)|!CustomL3Menu_StringInput_XPos+00 ;Row 2 (K-T)
+				dw ((!CustomL3Menu_StringInput_YPos+05)<<8)|!CustomL3Menu_StringInput_XPos+02 ;
+				dw ((!CustomL3Menu_StringInput_YPos+05)<<8)|!CustomL3Menu_StringInput_XPos+04 ;
+				dw ((!CustomL3Menu_StringInput_YPos+05)<<8)|!CustomL3Menu_StringInput_XPos+06 ;
+				dw ((!CustomL3Menu_StringInput_YPos+05)<<8)|!CustomL3Menu_StringInput_XPos+08 ;
+				dw ((!CustomL3Menu_StringInput_YPos+05)<<8)|!CustomL3Menu_StringInput_XPos+10 ;
+				dw ((!CustomL3Menu_StringInput_YPos+05)<<8)|!CustomL3Menu_StringInput_XPos+12 ;
+				dw ((!CustomL3Menu_StringInput_YPos+05)<<8)|!CustomL3Menu_StringInput_XPos+14 ;
+				dw ((!CustomL3Menu_StringInput_YPos+05)<<8)|!CustomL3Menu_StringInput_XPos+16 ;
+				dw ((!CustomL3Menu_StringInput_YPos+05)<<8)|!CustomL3Menu_StringInput_XPos+18 ;
+				
+				dw ((!CustomL3Menu_StringInput_YPos+07)<<8)|!CustomL3Menu_StringInput_XPos+00 ;Row 3 (U-Z then "." "!" "-" ",")
+				dw ((!CustomL3Menu_StringInput_YPos+07)<<8)|!CustomL3Menu_StringInput_XPos+02 ;
+				dw ((!CustomL3Menu_StringInput_YPos+07)<<8)|!CustomL3Menu_StringInput_XPos+04 ;
+				dw ((!CustomL3Menu_StringInput_YPos+07)<<8)|!CustomL3Menu_StringInput_XPos+06 ;
+				dw ((!CustomL3Menu_StringInput_YPos+07)<<8)|!CustomL3Menu_StringInput_XPos+08 ;
+				dw ((!CustomL3Menu_StringInput_YPos+07)<<8)|!CustomL3Menu_StringInput_XPos+10 ;
+				dw ((!CustomL3Menu_StringInput_YPos+07)<<8)|!CustomL3Menu_StringInput_XPos+12 ;
+				dw ((!CustomL3Menu_StringInput_YPos+07)<<8)|!CustomL3Menu_StringInput_XPos+14 ;
+				dw ((!CustomL3Menu_StringInput_YPos+07)<<8)|!CustomL3Menu_StringInput_XPos+16 ;
+				dw ((!CustomL3Menu_StringInput_YPos+07)<<8)|!CustomL3Menu_StringInput_XPos+18 ;
+				
+				dw ((!CustomL3Menu_StringInput_YPos+09)<<8)|!CustomL3Menu_StringInput_XPos+00 ;Row 4 (1-9 and then 0)
+				dw ((!CustomL3Menu_StringInput_YPos+09)<<8)|!CustomL3Menu_StringInput_XPos+02 ;
+				dw ((!CustomL3Menu_StringInput_YPos+09)<<8)|!CustomL3Menu_StringInput_XPos+04 ;
+				dw ((!CustomL3Menu_StringInput_YPos+09)<<8)|!CustomL3Menu_StringInput_XPos+06 ;
+				dw ((!CustomL3Menu_StringInput_YPos+09)<<8)|!CustomL3Menu_StringInput_XPos+08 ;
+				dw ((!CustomL3Menu_StringInput_YPos+09)<<8)|!CustomL3Menu_StringInput_XPos+10 ;
+				dw ((!CustomL3Menu_StringInput_YPos+09)<<8)|!CustomL3Menu_StringInput_XPos+12 ;
+				dw ((!CustomL3Menu_StringInput_YPos+09)<<8)|!CustomL3Menu_StringInput_XPos+14 ;
+				dw ((!CustomL3Menu_StringInput_YPos+09)<<8)|!CustomL3Menu_StringInput_XPos+16 ;
+				dw ((!CustomL3Menu_StringInput_YPos+09)<<8)|!CustomL3Menu_StringInput_XPos+18 ;
+				
+				dw ((!CustomL3Menu_StringInput_YPos+11)<<8)|!CustomL3Menu_StringInput_XPos+00 ;OK and cancel
+				dw ((!CustomL3Menu_StringInput_YPos+11)<<8)|!CustomL3Menu_StringInput_XPos+13
 			.ListOfTables
 				dw .Row1			;>!Freeram_CustomL3Menu_WritePhase == $01 ($02)
 				dw .Row2			;>!Freeram_CustomL3Menu_WritePhase == $02 ($04)
@@ -1115,6 +1230,35 @@ ProcessLayer3Menu:
 				db %00101100 ;"C"
 				db %00101100 ;"E"
 				db %00101100 ;"L"
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;Draw blinking cursor
+;Simply writes either a cursor tile or a blank tile, depending on
+;!Freeram_CustomL3Menu_CursorBlinkTimer.
+;
+;Must be called every frame while the menu is running, and have called
+;JSL SetupStripe and have XY be 16-bit in order to work.
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+DrawBlinkingCursor:
+	LDY #$0000					;\Blinking cursor, MOD 32 (number wraparound 0-31)
+	LDA !Freeram_CustomL3Menu_CursorBlinkTimer	;|at 0 (to 22), show cursor
+	AND.b #%00011111				;|at 23 (to 31), show blank tile
+	BEQ .BlinkShowCursor				;|
+	CMP #$17					;|
+	BEQ .BlinkNoShowCursor				;/
+	BRA .CursorWriteDone				;>For most frames, don't draw that is already drawn to avoid vblank issues
+	.BlinkNoShowCursor
+		INY #2
+	.BlinkShowCursor
+	REP #$20
+	LDA .MenuSelectionCursorBlink,y			;\Tile
+	STA.l $7F837D+4,x				;/
+	SEP #$20
+	.CursorWriteDone
+	RTL
+	
+	.MenuSelectionCursorBlink	;>Tiles used for cursor to blink on "MenuSelection". Format: $PPNN -> PP = properties (YXPCCCTT), NN = tile number
+		dw ((!CustomL3Menu_CursorRightArrow_TileProp<<8)|!CustomL3Menu_CursorRightArrow_TileNumb)		;>Tile to use when cursor links frame 1
+		dw $38FC		;>Tile to use when cursor links frame 2
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;Cursor move handler
 ;Handles D-pad to move the cursor. Designed only for "linear" menus that
@@ -1233,7 +1377,7 @@ DPadMoveCursorOnMenu2D:
 				LDA #$00
 			...Write
 				STA !Freeram_CustomL3Menu_CursorPos
-				BRA .SFX
+			BRA .SFX
 	.Vertical
 		;Note to self:
 		;CursorPos = CurrentCursorPos + NumberOfCols
