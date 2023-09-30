@@ -917,7 +917,7 @@ ProcessLayer3Menu:
 	;[                    ]
 	;[ U V W X Y Z . ! - ,] <- Row 3 (!Freeram_CustomL3Menu_WritePhase == 4)
 	;[                    ]
-	;[ 1 2 3 4 5 6 7 8 9 0] <- Row 4 (!Freeram_CustomL3Menu_WritePhase == 5)
+	;[ 0 1 2 3 4 5 6 7 8 9] <- Row 4 (!Freeram_CustomL3Menu_WritePhase == 5)
 	;[                    ]
 	;[ OK           CANCEL] <- Row 5 (!Freeram_CustomL3Menu_WritePhase == 6)
 	;--------------------------------------------------------------------------------
@@ -958,6 +958,15 @@ ProcessLayer3Menu:
 				SEP #$30
 				LDA #$01					;\Next phase
 				STA !Freeram_CustomL3Menu_WritePhase		;/
+				..ClearString
+					LDA !Freeram_CustomL3Menu_NumberOfCursorPositions
+					TAX
+					...Loop
+						LDA #$FC
+						STA !Freeram_CustomL3Menu_DigitPasscodeUserInput,x
+						....Next
+							DEX
+							BPL ...Loop
 				PLB
 				RTL
 			.DisplayString2
@@ -1097,17 +1106,121 @@ ProcessLayer3Menu:
 					...CursorWriteDone
 					SEP #$30
 				..DisplayString
-					JSL LRMoveCaret
-					BCC ...NoCaretMoved
-					...CaretMoved
-						JSL DrawCaretAndBlankLines
-					...NoCaretMoved
+					...LRMoveCursor
+						JSL LRMoveCaret
+						BCC ....NoCaretMoved
+						....CaretMoved
+							JSL DrawCaretAndBlankLines
+							JMP ..Done			;>Cannot move caret and enter character at the same time bc that would be calling JSL DrawCaretAndBlankLines twice.
+						....NoCaretMoved
+					...EnteredCharacters
+						LDA !Freeram_ControlBackup+1+!CustomL3Menu_WhichControllerDataToConfirm
+						AND.b #!CustomL3Menu_ButtonConfirm
+						BNE ....Selected
+						LDA !Freeram_ControlBackup+1+!CustomL3Menu_WhichControllerDataToConfirm2
+						AND.b #!CustomL3Menu_ButtonConfirm2
+						BNE ....Selected
+						LDA !Freeram_ControlBackup+1+!CustomL3Menu_WhichControllerDataToCancel
+						AND.b #!CustomL3Menu_ButtonCancel
+						BNE ....BackSpace
+						JMP ..Done
+						
+						....Selected
+							LDA !Freeram_CustomL3Menu_CursorPos
+							CMP #$1A
+							BCC .....Letters			;>$00-$19 are letters A-Z
+							CMP #$1E
+							BCC .....Punctuation			;>$1A-$1D are punctuations (. ! - ,)
+							CMP #$28
+							BCC .....Numbers			;>$1E-$28 are numbers 0-9
+							.....Letters
+								wdm
+								CLC
+								ADC #$0A			;>Letters = !Freeram_CustomL3Menu_CursorPos + $0A bc the characters goes A-Z at $0A-$23
+								TAY
+								BRA .....PrintCharacters
+							.....Punctuation
+								TAX
+								LDA .PunctuationCharacters-$1A,x
+								TAY
+								BRA .....PrintCharacters
+							.....Numbers
+								SEC
+								SBC #$1E			;>Numbers = !Freeram_CustomL3Menu_CursorPos - $1E bc the characters goes 0-9 at $00-$09
+								TAY
+							.....PrintCharacters
+								LDA !Freeram_CustomL3Menu_NumberOfCursorPositions	;\Prevent writing more characters than max
+								CMP !Freeram_CustomL3Menu_StringInput_CaretPos		;|
+								BCC ..Done						;/
+								LDA !Freeram_CustomL3Menu_StringInput_CaretPos		;\index position of character
+								TAX							;/
+								TYA							;\Write character
+								STA !Freeram_CustomL3Menu_DigitPasscodeUserInput,x	;/
+								LDA !Freeram_CustomL3Menu_StringInput_CaretPos		;\Move caret position
+								INC							;|
+								STA !Freeram_CustomL3Menu_StringInput_CaretPos		;/
+								LDA #!CustomL3Menu_StringInput_SFX_CharWriteNumber	;\Sound effects
+								STA !CustomL3Menu_StringInput_SFX_CharWritePort		;/
+								BRA ....UpdateStringStripe
+						....BackSpace
+							LDA !Freeram_CustomL3Menu_StringInput_CaretPos
+							BEQ ..Done
+							DEC A
+							STA !Freeram_CustomL3Menu_StringInput_CaretPos
+							TAX
+							LDA #$FC
+							STA !Freeram_CustomL3Menu_DigitPasscodeUserInput,x
+							LDA #!CustomL3Menu_SoundEffectNumber_Cancel
+							STA !CustomL3Menu_SoundEffectPort_Cancel
+							
+						....UpdateStringStripe
+							JSL DrawCaretAndBlankLines				;>Update caret position graphic
+							LDA #!CustomL3Menu_StringInput_XPos+1			;\XY pos
+							STA $00							;|
+							LDA #!CustomL3Menu_StringInput_YPos			;|
+							STA $01							;/
+							LDA #$05						;\Layer 3
+							STA $02							;/
+							STZ $03							;>Horizontal and no repeats
+							LDA !Freeram_CustomL3Menu_NumberOfCursorPositions	;\Number of tiles
+							STA $04							;|
+							STZ $05							;/
+							JSL SetupStripe
+
+							REP #$30
+							TXA
+							CLC
+							ADC.w #$7F837D+4
+							STA $00
+							SEP #$30
+							LDA #$7F
+							STA $02					;>$00-$02 = Current stripe address to write at
+							
+							LDA !Freeram_CustomL3Menu_NumberOfCursorPositions
+							TAX
+							ASL
+							TAY
+							.....Loop
+								LDA !Freeram_CustomL3Menu_DigitPasscodeUserInput,x
+								STA [$00],y
+								INY
+								LDA.b #%00111000					;\Tile properties
+								STA [$00],y						;/
+								DEY
+								......Next
+									DEY
+									DEY
+									DEX
+									BPL .....Loop
+
 				..Done
 					if !Debug_Display != 0
 						%DisplayHexNumber(!Freeram_CustomL3Menu_NumberOfCursorPositions, !Debug_Display_StatusBarBasePos_Tile+(3*!Debug_Display_StatusBarFormat))
 					endif
 				PLB
 				RTL
+			.PunctuationCharacters
+				db ".!-,"
 			.DisplayStringTiles
 				dw $38FC
 				dw ((!CustomL3Menu_StringInput_DisplayString_CaretNotThereProp<<8)|!CustomL3Menu_StringInput_DisplayString_CaretNotThere)
@@ -1198,7 +1311,7 @@ ProcessLayer3Menu:
 				db " U V W X Y Z . ! - ,"
 				..end
 			.Row4
-				db " 1 2 3 4 5 6 7 8 9 0"
+				db " 0 1 2 3 4 5 6 7 8 9"
 				..end
 			.Row5
 				db " OK           CANCEL"

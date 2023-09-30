@@ -251,10 +251,6 @@ endif
    !CustomL3Menu_SoundEffectPort_Correct = $1DFC|!addr
    !CustomL3Menu_SoundEffectNumber_Correct = $29
 
-  ;Sound effect when increment/decrementing a digit value
-   !CustomL3Menu_SoundEffectPort_NumberAdjust = $1DFC|!addr
-   !CustomL3Menu_SoundEffectNumber_NumberAdjust = $23
-
  ;Stripe image displaying layer 3 UI.
  ;Make sure the layer 3 settings in LM are:
  ;-Blank layer 3
@@ -277,6 +273,10 @@ endif
   ;Number input
    !CustomL3Menu_NumberInput_XPos = 3 ;>31 ($1F) = right edge of screen
    !CustomL3Menu_NumberInput_YPos = 25 ;>27 ($1B) = bottom of screen
+
+   ;Sound effect when increment/decrementing a digit value
+    !CustomL3Menu_SoundEffectPort_NumberAdjust = $1DFC|!addr
+    !CustomL3Menu_SoundEffectNumber_NumberAdjust = $23
 
    !CustomL3Menu_MaxNumberOfDigitsInEntireGame = 8
     ;^The most number of digits passcode and the longest string in your entire game.
@@ -316,6 +316,9 @@ endif
    ;Tile and properties for the empty space for the string the user enters.
     !CustomL3Menu_StringInput_DisplayString_CaretNotThere = $27
     !CustomL3Menu_StringInput_DisplayString_CaretNotThereProp = %00111000
+   ;Sound effects
+    !CustomL3Menu_StringInput_SFX_CharWritePort = $1DFC|!addr
+    !CustomL3Menu_StringInput_SFX_CharWriteNumber = $23
  ;Other
   ;Debugging
   ;On the status bar:
