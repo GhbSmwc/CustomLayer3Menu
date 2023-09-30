@@ -324,15 +324,6 @@ ProcessLayer3Menu:
 								ADC #!CustomL3Menu_MenuDisplay_YPos+1		;|
 								STA $01						;/
 								JSR .SetupStripeInputs
-								LDA !Freeram_CustomL3Menu_CursorBlinkTimer
-								AND.b #%00011111
-								BEQ ......WriteOnStripe
-								CMP #$17
-								BEQ ......WriteOnStripe
-								BRA .....CursorWriteDone
-								
-								......WriteOnStripe
-								JSL SetupStripe
 								JSL DrawBlinkingCursor
 							.....CursorWriteDone
 								SEP #$30
@@ -1087,16 +1078,6 @@ ProcessLayer3Menu:
 					STZ $04				;\1 tile
 					STZ $05				;/
 					
-					LDA !Freeram_CustomL3Menu_CursorBlinkTimer
-					AND.b #%00011111
-					BEQ ...WriteOnStripe
-					CMP #$17
-					BEQ ...WriteOnStripe
-					BRA ...CursorWriteDone
-
-					
-					...WriteOnStripe
-					JSL SetupStripe
 					JSL DrawBlinkingCursor
 					
 					...CursorWriteDone
@@ -1115,7 +1096,7 @@ ProcessLayer3Menu:
 				PLB
 				RTL
 			.DisplayStringTiles
-				dw $3800
+				dw $38FC
 				dw ((!CustomL3Menu_StringInput_DisplayString_BlankProp<<8)|!CustomL3Menu_StringInput_DisplayString_BlankTile)
 			.CursorPositions
 				;This is a table of every XY position that the cursor can be on.
@@ -1239,6 +1220,16 @@ ProcessLayer3Menu:
 ;JSL SetupStripe and have XY be 16-bit in order to work.
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 DrawBlinkingCursor:
+	LDA !Freeram_CustomL3Menu_CursorBlinkTimer
+	AND.b #%00011111
+	BEQ .WriteOnStripe
+	CMP #$17
+	BEQ .WriteOnStripe
+	BRA .CursorWriteDone
+	
+	.WriteOnStripe
+	JSL SetupStripe
+	SEP #$20					;>Just in case
 	LDY #$0000					;\Blinking cursor, MOD 32 (number wraparound 0-31)
 	LDA !Freeram_CustomL3Menu_CursorBlinkTimer	;|at 0 (to 22), show cursor
 	AND.b #%00011111				;|at 23 (to 31), show blank tile
