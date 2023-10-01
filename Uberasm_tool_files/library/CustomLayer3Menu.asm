@@ -932,9 +932,9 @@ ProcessLayer3Menu:
 			CMP #$01
 			BEQ .DisplayString2				;>$01
 			CMP #$07
-			BCC .DisplayCharSelectionAndConfirmRow			;>$02-$06
+			BCC .DisplayCharSelectionAndConfirmRow		;>$02-$06
 			BNE +
-			JMP .RespondToUserInput
+			JMP .RespondToUserInput				;>$07
 			+
 			PLB
 			RTL
@@ -1454,22 +1454,28 @@ DPadMoveCursorOnMenuDownOrRight:
 	db %00000001			;>Horizontal
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;Cursor move handler, 2D movement
-;Handles D-pad to move the cursor in 2D movement. Like text, the caret
+;Handles D-pad to move the cursor in 2D grid movement. Like text, the caret
 ;also wraps to the next line when the end of the line has been exceeded.
 ;
 ;Input:
 ; $00 (1 byte): How many columns the menu spans.
-; $01 (1 byte): Used so that the cursor can only be at valid positions. As
-;  this value increases positions will be added to the "right" and if a row
-;  is finished, will "line wrap".
+; $01 (1 byte): How many positions the cursor can be on, -1. Used so
+;               that the cursor can wrap when the cursor moves beyond
+;               last option.
 ;Output:
 ; Carry: 0 = No change, 1 = change. Needed so we can only update what's change
 ;  on the stripe image (such as erasing the old cursor position graphic).
+;
+;Virtually, it is treated like this:
+; XPos = !Freeram_CustomL3Menu_CursorPos MOD RAM_00
+; YPos = floor(!Freeram_CustomL3Menu_CursorPos / RAM_00)
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 DPadMoveCursorOnMenu2D:
 	LDA !Freeram_CustomL3Menu_DpadPulser
 	AND.b #%11110000
-	BEQ .NoMovement
+	BNE +
+	JMP .NoMovement
+	+
 	.Horizontal
 		AND.b #%00110000		;\Used CMP just in case user presses opposite directions at the same time.
 		CMP.b #%00100000		;|
@@ -1515,33 +1521,35 @@ DPadMoveCursorOnMenu2D:
 		BRA .NoMovement
 		
 		..DecrementByRAM
-			LDA !Freeram_CustomL3Menu_CursorPos
-			SEC
-			SBC $00
-			BCS ...Write			;>If not decremented past the first position, don't wrap
-			...Wrap ;>If decrement past $00, add repeatedly til it is highest value not greater than !Freeram_CustomL3Menu_NumberOfCursorPositions (wrap to the "bottom row of options")
-				CLC
-				ADC $00
-				CMP $01
-				BEQ ...Write						;>If lands exactly on last option, then stop
-				BCC ...Wrap
-				SEC							;\If greater, move a step back to the value that was before the excessive increment
-				SBC $00							;/
+			...Normal
+				LDA !Freeram_CustomL3Menu_CursorPos
+				SEC
+				SBC $00
+				BCS ...Write			;>If not decremented past the first position, don't wrap
+				....Wrap ;>If decrement past $00, add repeatedly til it is highest value not greater than !Freeram_CustomL3Menu_NumberOfCursorPositions (wrap to the "bottom row of options")
+					CLC
+					ADC $00
+					CMP $01
+					BEQ ...Write						;>If lands exactly on last option, then stop
+					BCC ....Wrap
+					SEC							;\If greater, move a step back to the value that was before the excessive increment
+					SBC $00							;/
 			...Write
 				STA !Freeram_CustomL3Menu_CursorPos
 			BRA .SFX
 		..IncrementByRAM
-			LDA !Freeram_CustomL3Menu_CursorPos
-			CLC
-			ADC $00
-			CMP $01
-			BEQ ...Write
-			BCC ...Write
-			...Wrap
-				SEC
-				SBC $00
-				CMP $00
-				BCS ...Wrap						;>Keep moving cursor up until at the top row.
+			...Normal
+				LDA !Freeram_CustomL3Menu_CursorPos
+				CLC
+				ADC $00
+				CMP $01
+				BEQ ...Write
+				BCC ...Write
+				....Wrap
+					SEC
+					SBC $00
+					CMP $00
+					BCS ....Wrap						;>Keep moving cursor up until at the top row.
 			...Write
 				STA !Freeram_CustomL3Menu_CursorPos
 	.SFX
