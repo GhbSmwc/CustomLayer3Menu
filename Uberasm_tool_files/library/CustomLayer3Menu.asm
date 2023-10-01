@@ -156,7 +156,8 @@ ProcessLayer3Menu:
 	;$00 contains the index of what menu type of the current menu.
 	;--------------------------------------------------------------------------------
 	;--------------------------------------------------------------------------------
-	;Close menu and enable player movement (shouldn't execute every frame)
+	;Close menu and enable player movement (execute once, shouldn't execute every
+	;frame or bugs may occur)
 	;--------------------------------------------------------------------------------
 	ExitMenuEnablePlayerMovement:
 		LDA #$00				;\Close menu so that the following code does not execute every frame
@@ -919,7 +920,9 @@ ProcessLayer3Menu:
 	;[                    ]
 	;[ 0 1 2 3 4 5 6 7 8 9] <- Row 4 (!Freeram_CustomL3Menu_WritePhase == 5)
 	;[                    ]
-	;[ OK           CANCEL] <- Row 5 (!Freeram_CustomL3Menu_WritePhase == 6)
+	;[ _ ✓ X              ] <- Row 5 (!Freeram_CustomL3Menu_WritePhase == 6)
+	;
+	;To close the menu, set !Freeram_CustomL3Menu_WritePhase to $08.
 	;--------------------------------------------------------------------------------
 		StringInput:
 			PHB
@@ -936,6 +939,16 @@ ProcessLayer3Menu:
 			BNE +
 			JMP .RespondToUserInput				;>$07
 			+
+			CMP #$0A
+			BCS +
+			JMP .ClearDisplayString				;>$08-$09
+			+
+			CMP #$0F
+			BCS +						;>failsafe, and also exit menu mode
+			JMP .ClearCharSelection				;>$0A-$0E
+			+
+			LDA #$01					;\exit menu
+			STA !Freeram_CustomL3Menu_UIState		;/
 			PLB
 			RTL
 			
@@ -1064,10 +1077,11 @@ ProcessLayer3Menu:
 			.RespondToUserInput
 				LDA.b #10						;\How many columns
 				STA $00							;/
-				LDA.b #42-1						;\How many cursor positions
+				LDA.b #43-1						;\How many cursor positions
 				STA $01							;/
 				LDA !Freeram_CustomL3Menu_CursorPos			;\$8A = cursor's previous position before moving the cursor
 				STA $8A							;/
+				
 				JSL DPadMoveCursorOnMenu2D				;>Move cursor based on D-pad
 				BCC ..CursorNotMoved
 				..CursorMovedEraseCursor
@@ -1125,14 +1139,18 @@ ProcessLayer3Menu:
 						BNE ....BackSpace
 						JMP ..Done
 						
-						....Selected
+						....Selected ;When the player presses A or B, on characters to write a character on the string, or an option to confirm and cancel
 							LDA !Freeram_CustomL3Menu_CursorPos
 							CMP #$1A
 							BCC .....Letters			;>$00-$19 are letters A-Z
 							CMP #$1E
 							BCC .....Punctuation			;>$1A-$1D are punctuations (. ! - ,)
 							CMP #$28
-							BCC .....Numbers			;>$1E-$28 are numbers 0-9
+							BCC .....Numbers			;>$1E-$27 are numbers 0-9
+							CMP #$29
+							BCC .....SpaceCharacter			;>$28 is a space character (can overwrite existing character with a space unlike pressing R)
+							BEQ .....Confirm			;>$29 confirm
+							BRA .....Cancel				;>$2A+ cancel
 							.....Letters
 								CLC
 								ADC #$0A			;>Letters = !Freeram_CustomL3Menu_CursorPos + $0A bc the characters goes A-Z at $0A-$23
@@ -1147,6 +1165,9 @@ ProcessLayer3Menu:
 								SEC
 								SBC #$1E			;>Numbers = !Freeram_CustomL3Menu_CursorPos - $1E bc the characters goes 0-9 at $00-$09
 								TAY
+								BRA .....PrintCharacters
+							.....SpaceCharacter
+								LDY #$FC			;>Blank tile
 							.....PrintCharacters
 								LDA !Freeram_CustomL3Menu_NumberOfCursorPositions	;\Prevent writing characters beyond the last "slot"
 								CMP !Freeram_CustomL3Menu_StringInput_CaretPos		;|(if equal, allow writing the last character and cursor being +1 beyond the last)
@@ -1166,6 +1187,22 @@ ProcessLayer3Menu:
 									LDA #!CustomL3Menu_SoundEffectNumber_Rejected
 									STA !CustomL3Menu_SoundEffectPort_Rejected
 									BRA ..Done
+							.....Confirm
+								;LDA #!CustomL3Menu_SoundEffectNumber_Confirm
+								;STA !CustomL3Menu_SoundEffectPort_Confirm
+								;JSR CheckPasscodeCorrect
+								STZ $00
+								BRA .....ExecuteCode
+							.....Cancel
+								LDA #!CustomL3Menu_SoundEffectNumber_Cancel
+								STA !CustomL3Menu_SoundEffectPort_Cancel
+								LDA #$01
+								STA $00
+							.....ExecuteCode
+								LDA #$5C						;\Setup a JML to a subroutine supplied from elsewhere such as a block door.
+								STA !Freeram_CustomL3Menu_PasscodeCallBackSubroutine	;/
+								JSL !Freeram_CustomL3Menu_PasscodeCallBackSubroutine	;>And now JSL to there, which as expected, JMLs to a supplied code. Once RTL, should go to the instruction below here.
+								BRA ..Done
 						....BackSpace
 							LDA !Freeram_CustomL3Menu_StringInput_CaretPos
 							BEQ ..Done
@@ -1216,13 +1253,55 @@ ProcessLayer3Menu:
 									DEY
 									DEX
 									BPL .....Loop
-
 				..Done
 					if !Debug_Display != 0
 						%DisplayHexNumber(!Freeram_CustomL3Menu_NumberOfCursorPositions, !Debug_Display_StatusBarBasePos_Tile+(3*!Debug_Display_StatusBarFormat))
 					endif
+					PLB
+					RTL
+			.ClearDisplayString ;$08-$09
+				LDA.b #!CustomL3Menu_StringInput_XPos+1			;\X pos
+				STA $00							;/
+				LDA.b #!CustomL3Menu_StringInput_YPos			;\Y pos
+				CLC							;|
+				ADC !Freeram_CustomL3Menu_WritePhase			;|
+				SEC							;|\!Freeram_CustomL3Menu_WritePhase would be $08 or $09, so subtracting it by $08
+				SBC #$08						;|/maps it to $00-$01, where the display string are at.
+				STA $01							;/
+				LDA.b #%01000000					;\Horizontal and repeating tiles
+				STA $03							;/
+				LDA.b !Freeram_CustomL3Menu_NumberOfCursorPositions	;\Number of tiles
+				STA $04							;|
+				STZ $05							;/
+			.ClearOutTiles
+				JSL SetupStripe
+				REP #$20
+				LDA #$38FC
+				STA $7F837D+4,x
+				SEP #$30
+				
+				LDA !Freeram_CustomL3Menu_WritePhase
+				INC A
+				STA !Freeram_CustomL3Menu_WritePhase
+				
 				PLB
 				RTL
+			.ClearCharSelection ;$0A-$0E
+				LDA.b #!CustomL3Menu_StringInput_XPos+1			;\X pos
+				STA $00							;/
+				LDA !Freeram_CustomL3Menu_WritePhase			;>Write phase (at $0A-$0E)
+				SEC							;\Map it to $00-$04
+				SBC #$0A						;/
+				ASL							;\YPos = ((!Freeram_CustomL3Menu_WritePhase-$0A)*2)+!CustomL3Menu_StringInput_YPos+3
+				CLC							;|
+				ADC.b #!CustomL3Menu_StringInput_YPos+3			;|
+				STA $01							;/
+				LDA.b #%01000000					;\Horizontal and repeating tiles
+				STA $03							;/
+				LDA.b #20-1
+				STA $04
+				STZ $05
+				BRA .ClearOutTiles
 			.PunctuationCharacters
 				db ".!-,"
 			.DisplayStringTiles
@@ -1284,8 +1363,9 @@ ProcessLayer3Menu:
 				dw ((!CustomL3Menu_StringInput_YPos+09)<<8)|!CustomL3Menu_StringInput_XPos+16 ;
 				dw ((!CustomL3Menu_StringInput_YPos+09)<<8)|!CustomL3Menu_StringInput_XPos+18 ;
 				
-				dw ((!CustomL3Menu_StringInput_YPos+11)<<8)|!CustomL3Menu_StringInput_XPos+00 ;OK and cancel
-				dw ((!CustomL3Menu_StringInput_YPos+11)<<8)|!CustomL3Menu_StringInput_XPos+13
+				dw ((!CustomL3Menu_StringInput_YPos+11)<<8)|!CustomL3Menu_StringInput_XPos+00 ;Space, OK and cancel
+				dw ((!CustomL3Menu_StringInput_YPos+11)<<8)|!CustomL3Menu_StringInput_XPos+02
+				dw ((!CustomL3Menu_StringInput_YPos+11)<<8)|!CustomL3Menu_StringInput_XPos+04
 			.ListOfTables
 				dw .Row1			;>!Freeram_CustomL3Menu_WritePhase == $01 ($02)
 				dw .Row2			;>!Freeram_CustomL3Menu_WritePhase == $02 ($04)
@@ -1318,29 +1398,20 @@ ProcessLayer3Menu:
 				db " 0 1 2 3 4 5 6 7 8 9"
 				..end
 			.Row5
-				db " OK           CANCEL"
+				db $FC ;><Space for cursor>
+				db $83 ;><space character>
+				db $FC ;><Space for cursor>
+				db $81 ;><checkmark>
+				db $FC ;><Space for cursor>
+				db $82 ;><red X to cancel>
 				..end
 				..Row5Props
-				db %00111000
-				db %00101000 ;"O"
-				db %00101000 ;"K"
-				db %00111000
-				db %00111000
-				db %00111000
-				db %00111000
-				db %00111000
-				db %00111000
-				db %00111000
-				db %00111000
-				db %00111000
-				db %00111000
-				db %00111000
-				db %00101100 ;"C"
-				db %00101100 ;"A"
-				db %00101100 ;"N"
-				db %00101100 ;"C"
-				db %00101100 ;"E"
-				db %00101100 ;"L"
+				db %00111000 ;><Space for cursor>
+				db %00111001 ;><space character>
+				db %00111000 ;><Space for cursor>
+				db %00101001 ;><checkmark>
+				db %00111000 ;><Space for cursor>
+				db %00101001 ;><red X to cancel>
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;Draw blinking cursor
 ;Simply writes either a cursor tile or a blank tile, depending on
