@@ -123,9 +123,9 @@ endif
   ;  !Freeram_CustomL3Menu_PasscodeCallBackSubroutine+3: cc ;/little endian!
   ;
   ;  This is called from "Uberasm_tool_files/library/CustomLayer3Menu.asm" ("JSL !Freeram_CustomL3Menu_PasscodeCallBackSubroutine")
-  ;  The input data given is $00 (1 byte) which determines:
-  ;   #$00 = Not confirmed (menu waiting for user to confirm) or when the user canceled. Therefore "not entered"
-  ;   #$01 = Confirmed
+  ;  The input data given is RAM $00 (1 byte) which determines:
+  ;   #$00 = Confirmed
+  ;   #$01 = Cancel
   ;  where the $ccbbaa is an address (in little endian) to jump to the supplied code. For example, in a custom block code you
   ;  would do this to setup an address that executes during process of the UI system:
   ;   REP #$20
