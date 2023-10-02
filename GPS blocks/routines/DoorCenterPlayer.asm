@@ -7,7 +7,7 @@
 	ASL
 	TAX
 	REP #$20
-	LDA $9A					;>What block the cliision point is on
+	LDA $9A					;>What block the collision point is on
 	AND #$FFF0				;>Round down to the nearest 16th pixel (floor(MarioPos/16)*16)
 	STA $94					;>And set player position
 	LDA $98					;\Same as above but Y position. Mario's height position however is raised up

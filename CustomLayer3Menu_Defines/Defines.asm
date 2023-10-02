@@ -103,13 +103,13 @@ endif
   ;^[!CustomL3Menu_MaxNumberOfDigitsInEntireGame bytes]. Contains the string of characters entered by the user.
   ; This is used by the number passcode UI. Make sure this is all initialized to 0.
   ;
-  ; This is also the character table for !StringInput
+  ; This is also the character table for StringInput
 
  !Freeram_CustomL3Menu_DigitCorrectPasscode = $0F5E|!addr
   ;^[!CustomL3Menu_MaxNumberOfDigitsInEntireGame bytes]. Contains the string of characters that is the correct passcode
   ; that a code compares it to determine if correct or not.
   ;
-  ; This is also the character table for !StringInput for the correct passcode.
+  ; This is also the character table for StringInput for the correct passcode.
 
  !Freeram_CustomL3Menu_PasscodeCallBackSubroutine = $0DC3|!addr
   ;^[4 bytes], this 4-byte of contiguous data:

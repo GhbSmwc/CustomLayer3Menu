@@ -2,3 +2,4 @@
 501:025	PasscodeDoor_Random.asm
 502:025	PasscodeGate_Terminal.asm
 503:025	PasscodeGate_Terminal_Random.asm
+504:025	PasscodeStringDoor.asm

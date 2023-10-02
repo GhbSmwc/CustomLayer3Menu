@@ -980,6 +980,9 @@ ProcessLayer3Menu:
 						....Next
 							DEX
 							BPL ...Loop
+				..ClearCaretPos
+					LDA #$00
+					STA !Freeram_CustomL3Menu_StringInput_CaretPos
 				PLB
 				RTL
 			.DisplayString2
