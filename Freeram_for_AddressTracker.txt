@@ -3,6 +3,7 @@
 UI	!Freeram_CustomL3Menu_UIState	1	-	-
 UI	!Freeram_CustomL3Menu_WritePhase	1	-	-
 UI	!Freeram_CustomL3Menu_CursorPos	1	-	-
+UI	!Freeram_CustomL3Menu_StringInput_CaretPos	1	-	-
 UI	!Freeram_CustomL3Menu_NumberOfCursorPositions	1	-	-
 ;!Freeram_CustomL3Menu_DigitPasscodeUserInput and
 ;!Freeram_CustomL3Menu_DigitCorrectPasscode number of bytes depends on what
