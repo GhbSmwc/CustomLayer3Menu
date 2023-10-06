@@ -136,8 +136,10 @@ SuppliedCode:
 					DEX
 					BPL ..PasscodeCheckLoop
 			..Correct
-				LDA #!CustomL3Menu_SoundEffectNumber_Correct
-				STA !CustomL3Menu_SoundEffectPort_Correct
+				if !CustomL3Menu_SoundEffectNumber_Correct != $00
+					LDA #!CustomL3Menu_SoundEffectNumber_Correct
+					STA !CustomL3Menu_SoundEffectPort_Correct
+				endif
 				LDA $7FC0FC+!CustomTrigger_WhichByte		;\Write trigger bit.
 				if !ClearOrSet == 0
 					AND.b #!CustomTrigger_BitToUse^$FF
@@ -147,8 +149,10 @@ SuppliedCode:
 				STA $7FC0FC+!CustomTrigger_WhichByte		;/
 				BRA .Done
 			..Incorrect
-				LDA #!CustomL3Menu_SoundEffectNumber_Rejected
-				STA !CustomL3Menu_SoundEffectPort_Rejected
+				if !CustomL3Menu_SoundEffectNumber_Rejected != $00
+					LDA #!CustomL3Menu_SoundEffectNumber_Rejected
+					STA !CustomL3Menu_SoundEffectPort_Rejected
+				endif
 		else
 			if !CorrectPasscodeSize == 0
 				LDA.b #!NumberOfDigits-1
@@ -161,8 +165,10 @@ SuppliedCode:
 				BNE ..Incorrect
 				
 				..Correct
-					LDA #!CustomL3Menu_SoundEffectNumber_Correct
-					STA !CustomL3Menu_SoundEffectPort_Correct
+					if !CustomL3Menu_SoundEffectNumber_Correct != $00
+						LDA #!CustomL3Menu_SoundEffectNumber_Correct
+						STA !CustomL3Menu_SoundEffectPort_Correct
+					endif
 					LDA $7FC0FC+!CustomTrigger_WhichByte		;\Write trigger bit.
 					if !ClearOrSet == 0
 						AND.b #!CustomTrigger_BitToUse^$FF
@@ -172,8 +178,10 @@ SuppliedCode:
 					STA $7FC0FC+!CustomTrigger_WhichByte		;/
 					BRA .Done
 				..Incorrect
-					LDA #!CustomL3Menu_SoundEffectNumber_Rejected
-					STA !CustomL3Menu_SoundEffectPort_Rejected
+					if !CustomL3Menu_SoundEffectNumber_Rejected != $00
+						LDA #!CustomL3Menu_SoundEffectNumber_Rejected
+						STA !CustomL3Menu_SoundEffectPort_Rejected
+					endif
 			else
 				LDA.b #!NumberOfDigits-1
 				STA !Freeram_CustomL3Menu_NumberOfCursorPositions
@@ -187,8 +195,10 @@ SuppliedCode:
 				BNE ..Incorrect
 				..Correct
 					SEP #$20
-					LDA #!CustomL3Menu_SoundEffectNumber_Correct
-					STA !CustomL3Menu_SoundEffectPort_Correct
+					if !CustomL3Menu_SoundEffectNumber_Correct != $00
+						LDA #!CustomL3Menu_SoundEffectNumber_Correct
+						STA !CustomL3Menu_SoundEffectPort_Correct
+					endif
 					LDA $7FC0FC+!CustomTrigger_WhichByte		;\Write trigger bit.
 					if !ClearOrSet == 0
 						AND.b #!CustomTrigger_BitToUse^$FF
@@ -199,8 +209,10 @@ SuppliedCode:
 					BRA .Done
 				..Incorrect
 					SEP #$20
-					LDA #!CustomL3Menu_SoundEffectNumber_Rejected
-					STA !CustomL3Menu_SoundEffectPort_Rejected
+					if !CustomL3Menu_SoundEffectNumber_Rejected != $00
+						LDA #!CustomL3Menu_SoundEffectNumber_Rejected
+						STA !CustomL3Menu_SoundEffectPort_Rejected
+					endif
 			endif
 		endif
 	.Done

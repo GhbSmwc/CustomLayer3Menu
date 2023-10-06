@@ -847,8 +847,10 @@ ProcessLayer3Menu:
 						LDA IncrementDecrementNumberUI,y			;\No increment, no sound (if both up and down are set or clear)
 						BEQ ....NoChange					;/
 						....Change
-							LDA #!CustomL3Menu_SoundEffectNumber_NumberAdjust	;\Play sound effect
-							STA !CustomL3Menu_SoundEffectPort_NumberAdjust		;/
+							if !CustomL3Menu_SoundEffectNumber_NumberAdjust != $00
+								LDA #!CustomL3Menu_SoundEffectNumber_NumberAdjust	;\Play sound effect
+								STA !CustomL3Menu_SoundEffectPort_NumberAdjust		;/
+							endif
 							.....UpdateDigitDisplayed
 								LDA.b #!CustomL3Menu_NumberInput_YPos+1		;\Y position
 								STA $01						;/
@@ -886,8 +888,10 @@ ProcessLayer3Menu:
 						STZ $00
 						BRA ...SetConfirmFlag
 					...Cancel
-						LDA #!CustomL3Menu_SoundEffectNumber_Cancel
-						STA !CustomL3Menu_SoundEffectPort_Cancel
+						if !CustomL3Menu_SoundEffectNumber_Cancel != $00
+							LDA #!CustomL3Menu_SoundEffectNumber_Cancel
+							STA !CustomL3Menu_SoundEffectPort_Cancel
+						endif
 						LDA #$01
 						STA $00
 					...SetConfirmFlag
@@ -1182,13 +1186,17 @@ ProcessLayer3Menu:
 								LDA !Freeram_CustomL3Menu_StringInput_CaretPos		;\Move caret position
 								INC							;|
 								STA !Freeram_CustomL3Menu_StringInput_CaretPos		;/
-								LDA #!CustomL3Menu_StringInput_SFX_CharWriteNumber	;\Sound effects
-								STA !CustomL3Menu_StringInput_SFX_CharWritePort		;/
+								if !CustomL3Menu_StringInput_SFX_CharWriteNumber != $00
+									LDA #!CustomL3Menu_StringInput_SFX_CharWriteNumber	;\Sound effects
+									STA !CustomL3Menu_StringInput_SFX_CharWritePort		;/
+								endif
 								BRA ....UpdateStringStripe
 								
 								......CharacterMaxed
-									LDA #!CustomL3Menu_SoundEffectNumber_Rejected
-									STA !CustomL3Menu_SoundEffectPort_Rejected
+									if !CustomL3Menu_SoundEffectNumber_Rejected != $00
+										LDA #!CustomL3Menu_SoundEffectNumber_Rejected
+										STA !CustomL3Menu_SoundEffectPort_Rejected
+									endif
 									BRA ..Done
 							.....Confirm
 								;LDA #!CustomL3Menu_SoundEffectNumber_Confirm
@@ -1197,8 +1205,10 @@ ProcessLayer3Menu:
 								STZ $00
 								BRA .....ExecuteCode
 							.....Cancel
-								LDA #!CustomL3Menu_SoundEffectNumber_Cancel
-								STA !CustomL3Menu_SoundEffectPort_Cancel
+								if !CustomL3Menu_SoundEffectNumber_Cancel != $00
+									LDA #!CustomL3Menu_SoundEffectNumber_Cancel
+									STA !CustomL3Menu_SoundEffectPort_Cancel
+								endif
 								LDA #$01
 								STA $00
 							.....ExecuteCode
@@ -1214,8 +1224,10 @@ ProcessLayer3Menu:
 							TAX
 							LDA #$FC
 							STA !Freeram_CustomL3Menu_DigitPasscodeUserInput,x
-							LDA #!CustomL3Menu_SoundEffectNumber_Cancel
-							STA !CustomL3Menu_SoundEffectPort_Cancel
+							if !CustomL3Menu_SoundEffectNumber_Cancel != $00
+								LDA #!CustomL3Menu_SoundEffectNumber_Cancel
+								STA !CustomL3Menu_SoundEffectPort_Cancel
+							endif
 							
 						....UpdateStringStripe
 							JSL DrawCaretAndBlankLines				;>Update caret position graphic
@@ -1502,8 +1514,10 @@ DPadMoveCursorOnMenu:
 		.NotExceed
 		STA !Freeram_CustomL3Menu_CursorPos
 	.SFX
-		LDA #!CustomL3Menu_SoundEffectNumber_CursorMove
-		STA !CustomL3Menu_SoundEffectPort_CursorMove
+		if !CustomL3Menu_SoundEffectNumber_CursorMove != $00
+			LDA #!CustomL3Menu_SoundEffectNumber_CursorMove
+			STA !CustomL3Menu_SoundEffectPort_CursorMove
+		endif
 	.CursorVisible
 		LDA #$00
 		STA !Freeram_CustomL3Menu_CursorBlinkTimer
@@ -1627,8 +1641,10 @@ DPadMoveCursorOnMenu2D:
 			...Write
 				STA !Freeram_CustomL3Menu_CursorPos
 	.SFX
-		LDA #!CustomL3Menu_SoundEffectNumber_CursorMove
-		STA !CustomL3Menu_SoundEffectPort_CursorMove
+		if !CustomL3Menu_SoundEffectNumber_CursorMove != $00
+			LDA #!CustomL3Menu_SoundEffectNumber_CursorMove
+			STA !CustomL3Menu_SoundEffectPort_CursorMove
+		endif
 	.CursorVisible
 		LDA #$00
 		STA !Freeram_CustomL3Menu_CursorBlinkTimer
@@ -1669,8 +1685,10 @@ LRMoveCaret:
 		STA !Freeram_CustomL3Menu_StringInput_CaretPos
 	.Change
 		.SFX
-			LDA #!CustomL3Menu_SoundEffectNumber_CursorMove
-			STA !CustomL3Menu_SoundEffectPort_CursorMove
+			if !CustomL3Menu_SoundEffectNumber_CursorMove != $00
+				LDA #!CustomL3Menu_SoundEffectNumber_CursorMove
+				STA !CustomL3Menu_SoundEffectPort_CursorMove
+			endif
 		SEC
 		RTL
 	.NoChange

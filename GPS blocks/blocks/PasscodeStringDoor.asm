@@ -77,17 +77,21 @@ SuppliedCode:
 				DEX
 				BPL ..Loop
 		..EnteredCorrect
-			LDA #!CustomL3Menu_SoundEffectNumber_Correct
-			STA !CustomL3Menu_SoundEffectPort_Correct
+			if !CustomL3Menu_SoundEffectNumber_Correct != $00
+				LDA #!CustomL3Menu_SoundEffectNumber_Correct
+				STA !CustomL3Menu_SoundEffectPort_Correct
+			endif
 			LDA #$06				;\Teleport player.
 			STA $71					;|
 			STZ $89					;|
 			STZ $88					;/
 			BRA .Exit				;>UI mode must be exited in order for the teleport to work.
 		..IncorrectPasscode
-			LDA #!CustomL3Menu_SoundEffectNumber_Rejected
-			STA !CustomL3Menu_SoundEffectPort_Rejected
-			BRA .Exit
+			if !CustomL3Menu_SoundEffectNumber_Rejected != $00
+				LDA #!CustomL3Menu_SoundEffectNumber_Rejected
+				STA !CustomL3Menu_SoundEffectPort_Rejected
+			endif
+			RTL
 CorrectPasscode:
 	;The correct passcode. If you want to have a higher maximum number of characters
 	;than the number of characters the correct passcode has, pad it with spaces at

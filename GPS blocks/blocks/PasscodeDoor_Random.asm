@@ -76,16 +76,20 @@ SuppliedCode:
 				DEX
 				BPL ..PasscodeCheckLoop
 		..Correct
-			LDA #!CustomL3Menu_SoundEffectNumber_Correct
-			STA !CustomL3Menu_SoundEffectPort_Correct
+			if !CustomL3Menu_SoundEffectNumber_Correct != $00
+				LDA #!CustomL3Menu_SoundEffectNumber_Correct
+				STA !CustomL3Menu_SoundEffectPort_Correct
+			endif
 			LDA #$06				;\Teleport player.
 			STA $71					;|
 			STZ $89					;|
 			STZ $88					;/
 			BRA .Done
 		..Incorrect
-			LDA #!CustomL3Menu_SoundEffectNumber_Rejected
-			STA !CustomL3Menu_SoundEffectPort_Rejected
+			if !CustomL3Menu_SoundEffectNumber_Rejected != $00
+				LDA #!CustomL3Menu_SoundEffectNumber_Rejected
+				STA !CustomL3Menu_SoundEffectPort_Rejected
+			endif
 	.Done
 		LDA #$03				;\Initiate closing the passcode mode and clear the stripe image tiles.
 		STA !Freeram_CustomL3Menu_WritePhase	;/
