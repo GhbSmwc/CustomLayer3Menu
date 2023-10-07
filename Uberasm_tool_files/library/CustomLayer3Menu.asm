@@ -913,6 +913,17 @@ ProcessLayer3Menu:
 			db $00		;>%00001100 (both pressed)
 	;--------------------------------------------------------------------------------
 	;String input
+	;Works like this, initially when the menu opens, the first N frames display
+	;each line of tiles representing the user input, the line below it to represent
+	;a usable space to place the characters, and the characters to enter along with
+	;"confirm" and "cancel" options.
+	;
+	;
+	;
+	;Like I said earlier, writing too many tiles within one frame can cause vblank
+	;overflow, resulting in black bars flickering at the top of the screen. This is
+	;why it draws tiles across multiple frames.
+	;
 	;[ *******************] <- Display string 1 (the characters the user enters, !Freeram_CustomL3Menu_WritePhase == 0)
 	;[ ^------------------] <- Display string 2 (!Freeram_CustomL3Menu_WritePhase == 1)
 	;[                    ]
@@ -1685,9 +1696,9 @@ LRMoveCaret:
 		STA !Freeram_CustomL3Menu_StringInput_CaretPos
 	.Change
 		.SFX
-			if !CustomL3Menu_SoundEffectNumber_CursorMove != $00
-				LDA #!CustomL3Menu_SoundEffectNumber_CursorMove
-				STA !CustomL3Menu_SoundEffectPort_CursorMove
+			if !CustomL3Menu_StringInput_SFX_CaretMoveNumber != $00
+				LDA #!CustomL3Menu_StringInput_SFX_CaretMoveNumber
+				STA !CustomL3Menu_StringInput_SFX_CaretMovePort
 			endif
 		SEC
 		RTL
@@ -1700,9 +1711,9 @@ LRMoveCaret:
 DrawCaretAndBlankLines:
 	LDA.b #!CustomL3Menu_StringInput_XPos+1			;\X pos
 	STA $00							;/
-	LDA.b #!CustomL3Menu_StringInput_YPos
-	INC
-	STA $01
+	LDA.b #!CustomL3Menu_StringInput_YPos			;\Y pos
+	INC							;|
+	STA $01							;/
 	LDA #$05
 	STA $02
 	STZ $03
@@ -1727,8 +1738,8 @@ DrawCaretAndBlankLines:
 		LDX #$00
 		TYA
 		LSR
-		CMP !Freeram_CustomL3Menu_StringInput_CaretPos
-		BNE .NotAnArrow
+		CMP !Freeram_CustomL3Menu_StringInput_CaretPos		;\If a character slot is where the caret should be at, draw caret instead of a "-"
+		BNE .NotAnArrow						;/
 		.AnArrow
 			INX #2
 		.NotAnArrow

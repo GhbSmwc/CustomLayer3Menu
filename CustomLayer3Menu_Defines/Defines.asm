@@ -313,18 +313,23 @@ endif
    ;Position of the string input, being the top-leftmost bounding box (X+0 is where the cursor will be at)
     !CustomL3Menu_StringInput_XPos = 5
     !CustomL3Menu_StringInput_YPos = 7
-   ;Tile and properties for the empty space for the string the user enters.
+   ;Tile and properties for representing a space for the string the user can enter (the "underline")
+   ;representing the maximum length.
     !CustomL3Menu_StringInput_DisplayString_CaretNotThere = $27
     !CustomL3Menu_StringInput_DisplayString_CaretNotThereProp = %00111000
    ;Sound effects
-    !CustomL3Menu_StringInput_SFX_CharWritePort = $1DFC|!addr
-    !CustomL3Menu_StringInput_SFX_CharWriteNumber = $23
+    ;When selecting a character to be written.
+     !CustomL3Menu_StringInput_SFX_CharWritePort = $1DFC|!addr
+     !CustomL3Menu_StringInput_SFX_CharWriteNumber = $23
+    ;When pressing L/R to move the caret to adjust where to place a character
+     !CustomL3Menu_StringInput_SFX_CaretMovePort = $1DF9|!addr
+     !CustomL3Menu_StringInput_SFX_CaretMoveNumber = $03
  ;Other
   ;Debugging
   ;On the status bar:
   ; 1st number: shows the cursor's position, !Freeram_CustomL3Menu_CursorPos (only shows the first time you move cursor)
   ; 2nd number: shows the "maximum" cursor position index, !Freeram_CustomL3Menu_NumberOfCursorPositions
-   !Debug_Display = 1
+   !Debug_Display = 0
     ;^0 = off, 1 = on.
     ; Use this if you are customizing the menu and ran into issues
    ;Status bar starting address to write:
