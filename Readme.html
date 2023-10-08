@@ -28,12 +28,18 @@
 		</style>
 	</head>
 	<h1 style="text-align: center;">Custom layer 3 UI</h1>
-	<p>This ASM package lets you have custom layer 3 user interface (currently at the moment, it contains a number input and a menu). This involves drawing the UI on layer 3 stripe image and utilizing RAMs so that the system knows
-	what the player is selecting.</p>
+	<p>This ASM package lets you have custom layer 3 user interface. This involves drawing the UI on layer 3 stripe image and utilizing RAMs so that the system knows what the player is selecting.</p>
+	<p>Features included:</p>
+	<ul>
+		<li>A vertical menu whose code can be customize when selected (you can have up to )</li>
+		<li>A digit passcode</li>
+		<li>A String input (can be used as a passcode)</li>
+	</ul>
 	<h2>Table of Contents</h2>
 	<ul>
 		<li><a href="#TOC_Installation" id="TOC_back_Installation">Installation</a></li>
 		<li><a href="#TOC_Notes" id="TOC_back_Notes">Notes</a></li>
+		<li><a href="#TOC_Usage" id="TOC_back_Usage">Usage</a></li>
 	</ul>
 	<hr>
 	<h2><a href="#TOC_back_Installation" id="TOC_Installation">^</a>Installation</h2>
@@ -56,10 +62,15 @@
 				If you wish to make changes after insertion, make sure you repeat this step so that all the tools will have up-to-date info
 				</li>
 			</ol>
+			<li>Patch</li>
+				<ol>
+					<li>Obviously this ASM pack requires a patch, so patch <kbd>Patch/UIControlTransferPatch.asm</kbd> into your game. This patch disables controls from influencing Mario, fixes a minor Y position
+					bug and modifies the <kbd>FreezePlayer</kbd> not to temporary disable HDMA outside the bowser fight when setting RAM <kbd>$71</kbd> to <kbd>#$0B</kbd>.</li>
+				</ol>
 			<li>Custom blocks (Gopher Popcorn Stew)</li>
 			<ol>
 				<li>Have the text file in <kbd>CustomLayer3Menu/GPS blocks/BlockList.txt</kbd> and paste it in GPS's list file.</li>
-				<li>Paste several ASM files in the subdirectory (subfolder) of kbd>CustomLayer3Menu/GPS blocks/</kbd>. Folder names should be obvious where to put.</li>
+				<li>Paste several ASM files in the subdirectory (subfolder) of <kbd>CustomLayer3Menu/GPS blocks/</kbd>. Folder names should be obvious where to put.</li>
 				<li>Run GPS to install the blocks into your game.</li>
 			</ol>
 			<li>Uberasm tool</li>
@@ -78,6 +89,26 @@ gamemode:
 				<li>Then insert into your game by running <kbd>UberASMTool.exe</kbd></li>
 			</ol>
 		</ol>
+	</ol>
+<hr>
+<h2><a href="#TOC_back_Usage" id="TOC_Usage">^</a>Usage</h2>
+	<ol>
+		<li>
+			In any level that uses this layer 3 mechanic on Lunar Magic, you must have the &ldquo;Change Layer 3 Settings&rdquo; set as follows:
+			<ul>
+				<li>Blank layer 3</li>
+				<li>[check] Force Layer 3 tiles with priority above other layers and sprites</li>
+				<li>[check] Enable advanced bypass settings for Layer 3</li>
+				<li>[uncheck] CGADSUB for Layer 3</li>
+				<li>[uncheck] Move layer 3 to subscreen</li>
+				<li>Vertical scroll: None</li>
+				<li>Vertical scroll: None</li>
+				<li>Inintal Y position/offset: 0</li>
+				<li>Inintal X position/offset: 0</li>
+			</ul>
+			This is so that the menu appears on-screen and not behind other layers and sprites.
+		</li>
+		<li>Place any custom blocks in the level that the player can use.</li>
 	</ol>
 	
 	<h2><a href="#TOC_back_Notes" id="TOC_Notes">^</a>Notes</h2>
