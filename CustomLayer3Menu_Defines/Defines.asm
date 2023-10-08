@@ -252,7 +252,7 @@ endif
    !CustomL3Menu_SoundEffectNumber_Correct = $29
 
  ;Stripe image displaying layer 3 UI.
- ;Make sure the layer 3 settings in LM are:
+ ;Make sure the "Change Layer 3 settings" in LM be:
  ;-Blank layer 3
  ;-[check] Force Layer 3 tiles with priority above other layers and sprites
  ;-[check] Enable advanced bypass settings for Layer 3
