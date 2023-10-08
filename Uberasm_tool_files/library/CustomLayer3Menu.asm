@@ -17,7 +17,7 @@
 			LSR #4
 			STA <StatusBarWritePos>
 			LDA <ValueToDisplay>
-			ANd.b #%00001111
+			AND.b #%00001111
 			STA <StatusBarWritePos>+!Debug_Display_StatusBarFormat
 		endmacro
 	endif
