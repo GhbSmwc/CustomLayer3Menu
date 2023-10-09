@@ -99,7 +99,7 @@ CorrectPasscode:
 	;
 	;Make sure they are all in caps for letters since the first page only contains
 	;capitol letters.
-	db "QWERTY  "
+	db "QWERTY  " ;>Must be in between the two labels to get the number of characters correct.
 	.end
 
 print "A passcode door that lets the player enters beyond numbers."
