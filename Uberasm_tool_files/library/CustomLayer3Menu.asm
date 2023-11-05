@@ -1101,7 +1101,21 @@ ProcessLayer3Menu:
 				STA $8A							;/
 				
 				JSL DPadMoveCursorOnMenu2D				;>Move cursor based on D-pad
-				BCC ..CursorNotMoved
+				BCS ..CursorMovedEraseCursor
+				..StartButtonToConfirm
+					LDA !Freeram_ControlBackup+1				;\Pressing START will move the cursor to the confirm option, unless already.
+					BIT.b #%00010000					;|
+					BEQ ..CursorNotMoved					;|
+					LDA #$29						;|
+					CMP !Freeram_CustomL3Menu_CursorPos			;|
+					BEQ ..CursorNotMoved					;|
+					STA !Freeram_CustomL3Menu_CursorPos			;|
+					LDA #$00						;|\Every time cursor moves, reset this so that the cursor always show
+					STA !Freeram_CustomL3Menu_CursorBlinkTimer		;|/
+					if !CustomL3Menu_SoundEffectNumber_CursorMove != $00	;|
+						LDA #!CustomL3Menu_SoundEffectNumber_CursorMove	;|
+						STA !CustomL3Menu_SoundEffectPort_CursorMove	;/
+					endif
 				..CursorMovedEraseCursor
 					LDA $8A				;\Y = index for each position of the cursor
 					ASL				;|
@@ -1530,8 +1544,8 @@ DPadMoveCursorOnMenu:
 			STA !CustomL3Menu_SoundEffectPort_CursorMove
 		endif
 	.CursorVisible
-		LDA #$00
-		STA !Freeram_CustomL3Menu_CursorBlinkTimer
+		LDA #$00					;\Every time cursor moves, reset this so that the cursor always show
+		STA !Freeram_CustomL3Menu_CursorBlinkTimer	;/
 	if !Debug_Display != 0
 		%DisplayHexNumber(!Freeram_CustomL3Menu_CursorPos, !Debug_Display_StatusBarBasePos_Tile)
 	endif
@@ -1657,8 +1671,8 @@ DPadMoveCursorOnMenu2D:
 			STA !CustomL3Menu_SoundEffectPort_CursorMove
 		endif
 	.CursorVisible
-		LDA #$00
-		STA !Freeram_CustomL3Menu_CursorBlinkTimer
+		LDA #$00					;\Every time cursor moves, reset this so that the cursor always show
+		STA !Freeram_CustomL3Menu_CursorBlinkTimer	;/
 	if !Debug_Display != 0
 		%DisplayHexNumber(!Freeram_CustomL3Menu_CursorPos, !Debug_Display_StatusBarBasePos_Tile)
 	endif
