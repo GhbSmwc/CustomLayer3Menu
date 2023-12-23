@@ -9,9 +9,9 @@ incsrc "../CustomLayer3Menu_Defines/Defines.asm"
 ;Good for "compressed passcode" if you plan on having multiple randomized correct passcodes in
 ;your game and you do not want the correct passcodes to take up an exorbitant amount of space.
 ;
-;Note: a 32-bit range RNG subroutine is required. At the time of writing this, nobody has made
-;that. However, you can just simply generate the BCD format, then use this subroutine to compress
-;the two words, then store it in SRAM.
+;Note: a 32-bit range RNG subroutine is required (if you wanted a randomized passcode). At the
+;time of writing this, nobody has made that. However, you can just simply generate the BCD
+;format, then use this subroutine to compress the two words, then store it in SRAM.
 ;
 ;Input:
 ;-!Freeram_CustomL3Menu_NumberOfCursorPositions (1 byte): Needed to find the last digit
@@ -59,7 +59,7 @@ incsrc "../CustomLayer3Menu_Defines/Defines.asm"
 		SEP #$20
 		JSR ?MathMul32_32					;>$08-$0F (8 bytes, 64 bits): product
 		REP #$20
-		LDA $08							;\Add by previously calculated value.
+		LDA $08							;\Add by previously calculated value (1234 = 1000 + 200 + 30 + 4).
 		CLC							;|The unsigned overflow carry also works in 16-bit mode,
 		ADC !Scratchram_32bitDecToHexOutput			;|therefore on the low word, if $FFFF is exceeded, the carry is set
 		STA !Scratchram_32bitDecToHexOutput			;|so the high word will do A+1+B.
